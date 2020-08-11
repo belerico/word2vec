@@ -1,8 +1,7 @@
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from tqdm import tqdm
-
+import time
 from word2vec.data.input_data import InputData, Word2vecDataset
 from word2vec.model import SkipGram
 
@@ -13,17 +12,17 @@ class Word2Vec:
         input_file,
         output_file,
         emb_dimension=100,
-        batch_size=4,
+        batch_size=1,
+        min_count=5,
         window_size=5,
         ns_size=5,
-        iterations=10,
+        epochs=10,
         initial_lr=0.001,
-        min_count=5,
     ):
 
         self.data = InputData(input_file, min_count)
         dataset = Word2vecDataset(
-            self.data, window_size=window_size, ns_size=ns_size
+            self.data, window_size=window_size, ns_size=ns_size,
         )
         self.dataloader = DataLoader(
             dataset,
@@ -37,7 +36,7 @@ class Word2Vec:
         self.emb_size = len(self.data.word2id)
         self.emb_dimension = emb_dimension
         self.batch_size = batch_size
-        self.iterations = iterations
+        self.epochs = epochs
         self.initial_lr = initial_lr
         self.model = SkipGram(self.emb_size, self.emb_dimension)
 
@@ -47,29 +46,47 @@ class Word2Vec:
             self.model.cuda()
 
     def train(self):
-
-        for iteration in range(self.iterations):
-
-            print("\n\nIteration: " + str(iteration + 1))
-            optimizer = optim.SGD(self.model.parameters(), lr=self.initial_lr)
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer, len(self.dataloader)
-            )
+        optimizer = optim.SGD(self.model.parameters(), lr=self.initial_lr)
+        for epoch in range(self.epochs):
 
             running_loss = 0.0
-            for i, sample_batched in enumerate(self.dataloader):
+            word_cnt = 0
+            t0 = time.time()
 
+            for i, sample_batched in enumerate(self.dataloader):
                 if len(sample_batched[0]) > 0:
+
                     pos_u = sample_batched[0].to(self.device)
                     pos_v = sample_batched[1].to(self.device)
                     neg_v = sample_batched[2].to(self.device)
 
-                    scheduler.step()
                     optimizer.zero_grad()
                     loss = self.model.forward(pos_u, pos_v, neg_v)
                     loss.backward()
                     optimizer.step()
 
-                    running_loss = running_loss * 0.9 + loss.item() * 0.1
-                    if i > 0 and i % 4 == 0:
-                        print(" Loss: " + str(running_loss))
+                    running_loss += loss.item()
+                    word_cnt += len(sample_batched[0])
+
+                    if word_cnt > 10000:
+                        word_cnt = word_cnt - 10000
+                        lr = self.initial_lr * (
+                            1.0 - (i + 1) / self.data.sentence_cnt
+                        )
+                        if lr >= self.initial_lr * 0.0001:
+                            for param_group in optimizer.param_groups:
+                                param_group["lr"] = lr
+
+                        print(
+                            "Processed sentences: {:.4f}%, Elapsed: {:.2f}s".format(
+                                ((i / self.data.sentence_cnt) * 100),
+                                time.time() - t0,
+                            )
+                        )
+
+            epoch_loss = running_loss / len(self.dataloader)
+            print(
+                "Epoch: {}, Elapsed: {:.2f}s, Training Loss: {:.4f}".format(
+                    epoch, time.time() - t0, epoch_loss
+                )
+            )
