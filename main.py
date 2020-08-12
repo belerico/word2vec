@@ -4,7 +4,7 @@ from word2vec.word2vec import Word2Vec
 from torch.utils.data import DataLoader
 
 if __name__ == "__main__":
-    # data = InputData("./word2vec/data/sample.txt", min_count=5)
+    # data = InputData(train_file="./word2vec/data/sample.txt", min_count=5,)
     # data.init_vocab()
     # data.init_unigram_table()
     # data.init_keep_table()
@@ -34,12 +34,13 @@ if __name__ == "__main__":
     #     print(batch[2])
 
     w2v = Word2Vec(
-        "./word2vec/data/text8",
-        "./word2vec/data/sample.txt",
-        min_count=50,
+        train_file="./word2vec/data/sample.txt",
+        output_vocab_dir="./vocab",
+        output_vec_file=None,
+        min_count=5,
         batch_size=1,
-        emb_dimension=100,
+        emb_dimension=10,
         epochs=200,
-        ns_size=10
+        ns_size=10,
     )
     w2v.train()

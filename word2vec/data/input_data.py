@@ -1,17 +1,22 @@
+import os
 import numpy as np
+import pickle
 
 
 class InputData:
     def __init__(
         self,
-        data_path: str,
+        train_file=None,
         min_count=5,
         unigram_pow=0.75,
         sample_thr=0.001,
         unigram_table_size=1e8,
         max_sentence_length=1000,
     ):
-        self.data_path = data_path
+        if not train_file:
+            raise FileNotFoundError("Train file path not specified")
+
+        self.train_file = train_file
         self.min_count = min_count
         self.unigram_pow = unigram_pow
         self.sample_thr = sample_thr
@@ -29,10 +34,42 @@ class InputData:
         self.sorted = []
         self.init_vocab()
         self.init_unigram_table()
-        # self.init_discard_table()
+
+    def save_vocab(self, output_vocab_dir):
+        if output_vocab_dir:
+            if not os.path.exists(output_vocab_dir):
+                os.makedirs(output_vocab_dir)
+            print("Saving vocab to " + output_vocab_dir)
+            pickle.dump(
+                self.word2id,
+                open(os.path.join(output_vocab_dir, "word2id.pkl"), "wb"),
+            )
+            pickle.dump(
+                self.id2word,
+                open(os.path.join(output_vocab_dir, "id2word.pkl"), "wb"),
+            )
+            pickle.dump(
+                self.word_freqs,
+                open(os.path.join(output_vocab_dir, "word_freqs.pkl"), "wb"),
+            )
+            pickle.dump(
+                self.unigram_table,
+                open(
+                    os.path.join(output_vocab_dir, "unigram_table.pkl"), "wb"
+                ),
+            )
+            pickle.dump(
+                self.discard_table,
+                open(
+                    os.path.join(output_vocab_dir, "discard_table.pkl"), "wb"
+                ),
+            )
+            print("Done")
+        else:
+            raise FileNotFoundError("'output_vocab_dir' is None")
 
     def init_vocab(self):
-        with open(self.data_path, "r") as f:
+        with open(self.train_file, "r") as f:
             eof = False
             word_freqs = dict()
 

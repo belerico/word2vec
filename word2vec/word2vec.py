@@ -10,8 +10,9 @@ from word2vec.model import SkipGram
 class Word2Vec:
     def __init__(
         self,
-        input_file,
-        output_file,
+        train_file=None,
+        output_vocab_dir=None,
+        output_vec_file=None,
         emb_dimension=100,
         batch_size=1,
         min_count=5,
@@ -21,7 +22,10 @@ class Word2Vec:
         initial_lr=0.001,
     ):
 
-        self.data = InputData(input_file, min_count)
+        self.data = InputData(train_file, min_count)
+        if output_vocab_dir:
+            self.data.save_vocab(output_vocab_dir)
+
         dataset = Word2vecDataset(
             self.data, window_size=window_size, ns_size=ns_size,
         )
@@ -33,7 +37,7 @@ class Word2Vec:
             collate_fn=dataset.collate,
         )
 
-        self.output_file_name = output_file
+        self.output_vec_file = output_vec_file
         self.emb_size = len(self.data.word2id)
         self.emb_dimension = emb_dimension
         self.batch_size = batch_size

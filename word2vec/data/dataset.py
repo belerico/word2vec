@@ -16,7 +16,7 @@ class Word2vecDataset(Dataset):
         self.data = data
         self.window_size = window_size
         self.ns_size = ns_size
-        self.input_file = open(data.data_path, encoding="utf8")
+        self.train_file = open(data.train_file, encoding="utf8")
         self.max_sentence_length = max_sentence_length
 
     def __len__(self):
@@ -29,7 +29,7 @@ class Word2vecDataset(Dataset):
             line = ""
 
             if self.eof:
-                self.input_file.seek(0, 0)
+                self.train_file.seek(0, 0)
                 self.eof = False
 
             # Read file in chunk or until a new line
@@ -38,7 +38,7 @@ class Word2vecDataset(Dataset):
                 and char_read < self.max_sentence_length
                 and not new_line
             ):
-                char = self.input_file.read(1)
+                char = self.train_file.read(1)
                 if char == "\n":
                     new_line = True
                 elif char == "":
@@ -52,7 +52,7 @@ class Word2vecDataset(Dataset):
                 # read until any whitespace is found
                 whitespace = False
                 while not whitespace:
-                    char = self.input_file.read(1)
+                    char = self.train_file.read(1)
                     if char.isspace() or not char:
                         whitespace = True
                     else:
