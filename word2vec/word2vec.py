@@ -2,7 +2,8 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import time
-from word2vec.data.input_data import InputData, Word2vecDataset
+from word2vec.data.input_data import InputData
+from word2vec.data.dataset import Word2vecDataset
 from word2vec.model import SkipGram
 
 

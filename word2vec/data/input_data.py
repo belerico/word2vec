@@ -1,5 +1,3 @@
-import torch
-from torch.utils.data import Dataset
 import numpy as np
 
 
@@ -28,24 +26,40 @@ class InputData:
         self.unique_word_cnt = 0
         self.neg_idx = 0
         self.unigram_table = []
-        self.keep_table = []
         self.sorted = []
         self.init_vocab()
         self.init_unigram_table()
-        self.init_keep_table()
-        # self.max_unigram_prob = np.max(self.unigram_table)
+        # self.init_discard_table()
 
     def init_vocab(self):
         with open(self.data_path, "r") as f:
-            wid = 0
-            print("Building vocab")
-            # Read file in chunk
             eof = False
+            word_freqs = dict()
+
+            print("Building vocab and discard table for subsampling")
             while not eof:
-                line = f.read(self.max_sentence_length)
-                if not line:
-                    eof = True
-                else:
+                char_read = 0
+                new_line = False
+                line = ""
+
+                # Read file in chunk or until a new line
+                while (
+                    not eof
+                    and char_read < self.max_sentence_length
+                    and not new_line
+                ):
+                    char = f.read(1)
+                    if char == "\n":
+                        new_line = True
+                    elif char == "":
+                        eof = True
+                    else:
+                        line += char
+                        char_read += 1
+
+                if not new_line:
+                    # If a word is truncated after "max_sentence_length" chars,
+                    # read until any whitespace is found
                     whitespace = False
                     while not whitespace:
                         char = f.read(1)
@@ -53,44 +67,51 @@ class InputData:
                             whitespace = True
                         else:
                             line += char
-                    if char:
+
+                if line != "\n" and line != "":
+                    if len(line) > 1:
                         self.sentence_cnt += 1
-                        for w in line.strip().split():
-                            if len(w) > 0:
-                                self.word_freqs[w] = (
-                                    self.word_freqs.get(w, 0) + 1
+                    for w in line.strip().split():
+                        if len(w) > 0:
+                            word_freqs[w] = word_freqs.get(w, 0) + 1
+                            self.word_cnt += 1
+                            if self.word_cnt % 1e6 == 0:
+                                print(
+                                    "Read "
+                                    + str(int(self.word_cnt / 1e6))
+                                    + "M words"
                                 )
-                                self.word_cnt += 1
-                                # Update stats only for words that has a frequency
-                                # greater than min_count
-                                if self.word_freqs[w] >= self.min_count:
-                                    # If it's the "first" time we encounter word w
-                                    if self.word_freqs[w] == self.min_count:
-                                        self.id2word[wid] = w
-                                        self.word2id[w] = wid
-                                        self.unique_word_cnt += 1
-                                        wid += 1
-                                if self.word_cnt % 1e6 == 0:
-                                    print(
-                                        "Read "
-                                        + str(int(self.word_cnt / 1e6))
-                                        + "M words"
-                                    )
-                    else:
-                        eof = True
+
         # Replace word keys with ids and
         # keep only those words with frequency >= min count
-        self.word_freqs = {
-            self.word2id[k]: v
-            for k, v in self.word_freqs.items()
-            if v >= self.min_count
-        }
-        # Sorted indices by frequency, descending order
-        self.sorted = np.argsort(list(self.word_freqs.values()))[::-1]
+        # and create the discard probability table
+        i = 0
+        wid = 0
+        self.discard_table = []
+        for w, c in word_freqs.items():
+            if c >= self.min_count:
+                # Update stats only for words that has a frequency
+                # greater than min_count
+                self.id2word[wid] = w
+                self.word2id[w] = wid
+                self.word_freqs[wid] = c
+                self.unique_word_cnt += 1
+
+                f = c / self.word_cnt
+                self.discard_table.append(
+                    (np.sqrt(f / self.sample_thr) + 1) * (self.sample_thr / f)
+                )
+
+                i += 1
+                wid += 1
+
         print("Done")
         print("Word count:", self.word_cnt)
         print("Sentence count:", self.sentence_cnt)
         print("Unique word count:", self.unique_word_cnt)
+
+        # Sorted indices by frequency, descending order
+        self.sorted = np.argsort(list(self.word_freqs.values()))[::-1]
 
     def init_unigram_table(self):
         print("Building unigram table for negative sampling")
@@ -105,10 +126,10 @@ class InputData:
     def get_sorted_freqs(self):
         return np.array(list(self.word_freqs.values()))[self.sorted]
 
-    def init_keep_table(self):
+    def init_discard_table(self):
         print("Building discard table for subsampling")
         x = np.array(list(self.word_freqs.values())) / self.word_cnt
-        self.keep_table = (np.sqrt(x / self.sample_thr) + 1) * (
+        self.discard_table = (np.sqrt(x / self.sample_thr) + 1) * (
             self.sample_thr / x
         )
         print("Done")
@@ -121,76 +142,3 @@ class InputData:
         if len(neg) != ns_size:
             return np.concatenate((neg, self.unigram_table[0 : self.neg_idx]))
         return neg
-
-
-class Word2vecDataset(Dataset):
-    def __init__(
-        self,
-        data: InputData,
-        window_size=5,
-        ns_size=5,
-        max_sentence_length=1000,
-    ):
-        self.data = data
-        self.window_size = window_size
-        self.ns_size = ns_size
-        self.input_file = open(data.data_path, encoding="utf8")
-        self.max_sentence_length = max_sentence_length
-
-    def __len__(self):
-        return self.data.sentence_cnt
-
-    def __getitem__(self, idx):
-        while True:
-            # Reading file in chunk: max sentence length
-            # as per Mikolov word2vec is 1000
-            line = self.input_file.read(self.max_sentence_length)
-            if not line:
-                self.input_file.seek(0, 0)
-                line = self.input_file.read(self.max_sentence_length)
-            else:
-                whitespace = False
-                while not whitespace:
-                    char = self.input_file.read(1)
-                    if char.isspace() or not char:
-                        whitespace = True
-                    else:
-                        line += char
-            if len(line) > 1:
-                words = line.split()
-                if len(words) > 1:
-                    wids = [
-                        self.data.word2id[w]
-                        for w in words
-                        if w in self.data.word2id
-                        and np.random.rand()
-                        < self.data.keep_table[self.data.word2id[w]]
-                    ]
-                    # Shrink window by b
-                    b = np.random.randint(0, self.window_size - 1)
-                    return [
-                        (
-                            target,
-                            context,
-                            self.data.get_negative_samples(
-                                target, context, self.ns_size
-                            ),
-                        )
-                        for i, target in enumerate(wids)
-                        for j, context in enumerate(
-                            wids[max(i - b, 0) : i + b]
-                        )
-                        if target != context
-                    ]
-
-    @staticmethod
-    def collate(batches):
-        all_target = [t for b in batches for t, _, _ in b if len(b) > 0]
-        all_context = [c for b in batches for _, c, _ in b if len(b) > 0]
-        all_neg = [neg for b in batches for _, _, neg in b if len(b) > 0]
-
-        return (
-            torch.LongTensor(all_target),
-            torch.LongTensor(all_context),
-            torch.LongTensor(all_neg),
-        )

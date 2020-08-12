@@ -1,4 +1,5 @@
-from word2vec.data.input_data import InputData, Word2vecDataset
+from word2vec.data.input_data import InputData
+from word2vec.data.dataset import Word2vecDataset
 from word2vec.word2vec import Word2Vec
 from torch.utils.data import DataLoader
 
@@ -33,9 +34,9 @@ if __name__ == "__main__":
     #     print(batch[2])
 
     w2v = Word2Vec(
+        "./word2vec/data/text8",
         "./word2vec/data/sample.txt",
-        "./word2vec/data/sample.txt",
-        min_count=5,
+        min_count=50,
         batch_size=1,
         emb_dimension=100,
         epochs=200,
