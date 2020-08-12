@@ -1,7 +1,8 @@
+import numpy as np
 import torch
 from torch.utils.data import Dataset
+
 from .vocab import Vocab
-import numpy as np
 
 
 class Word2vecDataset(Dataset):

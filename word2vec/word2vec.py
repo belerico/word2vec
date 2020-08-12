@@ -1,9 +1,11 @@
+import time
+
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-import time
-from word2vec.data.vocab import Vocab
+
 from word2vec.data.dataset import Word2vecDataset
+from word2vec.data.vocab import Vocab
 from word2vec.model import SkipGram
 
 

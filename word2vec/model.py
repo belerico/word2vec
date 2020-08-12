@@ -1,10 +1,10 @@
+import os
+import pickle
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
-import os
-import pickle
-
 
 # u_embedding: Embedding for target word.
 # v_embedding: Embedding for context words.

@@ -1,7 +1,11 @@
-from word2vec.data.vocab import Vocab
-from word2vec.data.dataset import Word2vecDataset
-from word2vec.word2vec import Word2Vec
+import pickle
+
+from scipy.spatial.distance import cosine
 from torch.utils.data import DataLoader
+
+from word2vec.data.dataset import Word2vecDataset
+from word2vec.data.vocab import Vocab
+from word2vec.word2vec import Word2Vec
 
 if __name__ == "__main__":
     # data = Vocab(train_file="./word2vec/data/dataset/sample.txt", min_count=5,)
@@ -35,13 +39,26 @@ if __name__ == "__main__":
 
     w2v = Word2Vec(
         train_file="./word2vec/data/dataset/text8.txt",
-        input_vocab_path="./vocab/vocab.pkl",
-        output_vocab_path="./vocab/vocab.pkl",
-        output_vec_path="./vec/vec.txt",
+        input_vocab_path=None,
+        output_vocab_path="./vocab/vocab_text8.pkl",
+        output_vec_path="./vec/vec_text8",
+        output_vec_format="pkl",
         min_count=5,
         batch_size=1,
-        emb_dimension=10,
-        epochs=200,
+        emb_dimension=100,
+        epochs=20,
         ns_size=10,
     )
     w2v.train()
+    embs = pickle.load(open("./vec/vec_text8.pkl", "rb"))
+    print("Cosine between 'cat' and 'dog' ", cosine(embs["dog"], embs["cat"]))
+    print(
+        "Cosine between 'cat' and 'anarchy' ", cosine(embs["cat"], embs["anarchy"]),
+    )
+    print(
+        "Cosine between 'queen' and 'king' ", cosine(embs["queen"], embs["king"]),
+    )
+    print(
+        "Cosine between 'king - man + woman' and 'queen' ",
+        cosine(embs["queen"], embs["king"] - embs["man"] + embs["woman"]),
+    )
