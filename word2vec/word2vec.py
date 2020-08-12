@@ -14,6 +14,7 @@ class Word2Vec:
         input_vocab_path=None,
         output_vocab_path=None,
         output_vec_path=None,
+        output_vec_format=None,
         emb_dimension=100,
         batch_size=1,
         min_count=5,
@@ -42,6 +43,7 @@ class Word2Vec:
         )
 
         self.output_vec_path = output_vec_path
+        self.output_vec_format = output_vec_format
         self.emb_size = len(self.data.word2id)
         self.emb_dimension = emb_dimension
         self.batch_size = batch_size
@@ -104,4 +106,8 @@ class Word2Vec:
                 )
             )
         if self.output_vec_path:
-            self.model.save_embeddings(self.data.id2word, self.output_vec_path)
+            self.model.save_embeddings(
+                self.data.id2word,
+                self.output_vec_path,
+                vec_format=self.output_vec_format,
+            )
