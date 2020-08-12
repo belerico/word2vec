@@ -53,10 +53,12 @@ if __name__ == "__main__":
     embs = pickle.load(open("./vec/vec_text8.pkl", "rb"))
     print("Cosine between 'cat' and 'dog' ", cosine(embs["dog"], embs["cat"]))
     print(
-        "Cosine between 'cat' and 'anarchy' ", cosine(embs["cat"], embs["anarchy"]),
+        "Cosine between 'cat' and 'anarchy' ",
+        cosine(embs["cat"], embs["anarchy"]),
     )
     print(
-        "Cosine between 'queen' and 'king' ", cosine(embs["queen"], embs["king"]),
+        "Cosine between 'queen' and 'king' ",
+        cosine(embs["queen"], embs["king"]),
     )
     print(
         "Cosine between 'king - man + woman' and 'queen' ",

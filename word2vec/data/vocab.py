@@ -162,8 +162,8 @@ class Vocab:
         print("Done")
 
     def get_negative_samples(self, target: int, context: int, ns_size=5):
-        neg = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
+        neg = self.unigram_table[self.neg_idx: self.neg_idx + ns_size]
         self.neg_idx = (self.neg_idx + ns_size) % len(self.unigram_table)
         if len(neg) != ns_size:
-            return np.concatenate((neg, self.unigram_table[0 : self.neg_idx]))
+            return np.concatenate((neg, self.unigram_table[0: self.neg_idx]))
         return neg

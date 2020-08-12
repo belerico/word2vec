@@ -94,7 +94,10 @@ class Word2Vec:
 
                     if i % 200 == 0:
                         print(
-                            "Progress: {:.4f}%, Elapsed: {:.2f}s, Lr: {}, Loss: {:.4f}".format(
+                            "Progress: {:.4f}%, \
+                             Elapsed: {:.2f}s, \
+                             Lr: {}, \
+                             Loss: {:.4f}".format(
                                 ((i / self.data.sentence_cnt) * 100),
                                 time.time() - t0,
                                 round(lr, 8),

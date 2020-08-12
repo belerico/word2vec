@@ -77,7 +77,7 @@ class Word2vecDataset(Dataset):
                         )
                         for i, target in enumerate(wids)
                         for j, context in enumerate(
-                            wids[max(i - b, 0) : i + b]
+                            wids[max(i - b, 0): i + b + 1]
                         )
                         if target != context
                     ]
