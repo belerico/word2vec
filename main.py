@@ -1,10 +1,10 @@
-from word2vec.data.input_data import InputData
+from word2vec.data.vocab import Vocab
 from word2vec.data.dataset import Word2vecDataset
 from word2vec.word2vec import Word2Vec
 from torch.utils.data import DataLoader
 
 if __name__ == "__main__":
-    # data = InputData(train_file="./word2vec/data/sample.txt", min_count=5,)
+    # data = Vocab(train_file="./word2vec/data/dataset/sample.txt", min_count=5,)
     # data.init_vocab()
     # data.init_unigram_table()
     # data.init_keep_table()
@@ -34,9 +34,10 @@ if __name__ == "__main__":
     #     print(batch[2])
 
     w2v = Word2Vec(
-        train_file="./word2vec/data/sample.txt",
-        output_vocab_dir="./vocab",
-        output_vec_file=None,
+        train_file="./word2vec/data/dataset/text8.txt",
+        input_vocab_path="./vocab/vocab.pkl",
+        output_vocab_path="./vocab/vocab.pkl",
+        output_vec_path="./vec/vec.txt",
         min_count=5,
         batch_size=1,
         emb_dimension=10,

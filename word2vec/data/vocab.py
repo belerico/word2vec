@@ -3,7 +3,7 @@ import numpy as np
 import pickle
 
 
-class InputData:
+class Vocab:
     def __init__(
         self,
         train_file=None,
@@ -35,38 +35,27 @@ class InputData:
         self.init_vocab()
         self.init_unigram_table()
 
-    def save_vocab(self, output_vocab_dir):
-        if output_vocab_dir:
-            if not os.path.exists(output_vocab_dir):
-                os.makedirs(output_vocab_dir)
-            print("Saving vocab to " + output_vocab_dir)
+    def save_vocab(self, vocab_path):
+        if not os.path.exists(vocab_path):
+            if not os.path.exists(os.path.dirname(vocab_path)):
+                os.makedirs(os.path.dirname(vocab_path))
+            print("Saving vocab to " + vocab_path)
             pickle.dump(
-                self.word2id,
-                open(os.path.join(output_vocab_dir, "word2id.pkl"), "wb"),
-            )
-            pickle.dump(
-                self.id2word,
-                open(os.path.join(output_vocab_dir, "id2word.pkl"), "wb"),
-            )
-            pickle.dump(
-                self.word_freqs,
-                open(os.path.join(output_vocab_dir, "word_freqs.pkl"), "wb"),
-            )
-            pickle.dump(
-                self.unigram_table,
-                open(
-                    os.path.join(output_vocab_dir, "unigram_table.pkl"), "wb"
-                ),
-            )
-            pickle.dump(
-                self.discard_table,
-                open(
-                    os.path.join(output_vocab_dir, "discard_table.pkl"), "wb"
-                ),
+                self, open(os.path.join(vocab_path), "wb"),
             )
             print("Done")
         else:
-            raise FileNotFoundError("'output_vocab_dir' is None")
+            raise FileExistsError("'" + vocab_path + "' already exists")
+
+    @staticmethod
+    def load_vocab(vocab_path):
+        if os.path.exists(vocab_path):
+            print("Loading vocab from " + vocab_path)
+            obj = pickle.load(open(vocab_path, "rb"))
+            print("Done")
+            return obj
+        else:
+            raise FileNotFoundError("'" + vocab_path + "' not found")
 
     def init_vocab(self):
         with open(self.train_file, "r") as f:
@@ -171,9 +160,7 @@ class InputData:
         )
         print("Done")
 
-    def get_negative_samples(
-        self, target: int, context: int, ns_size=5, op_max=100
-    ):
+    def get_negative_samples(self, target: int, context: int, ns_size=5):
         neg = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
         self.neg_idx = (self.neg_idx + ns_size) % len(self.unigram_table)
         if len(neg) != ns_size:

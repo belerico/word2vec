@@ -1,16 +1,12 @@
 import torch
 from torch.utils.data import Dataset
-from .input_data import InputData
+from .vocab import Vocab
 import numpy as np
 
 
 class Word2vecDataset(Dataset):
     def __init__(
-        self,
-        data: InputData,
-        window_size=5,
-        ns_size=5,
-        max_sentence_length=1000,
+        self, data: Vocab, window_size=5, ns_size=5, max_sentence_length=1000,
     ):
         self.eof = False
         self.data = data
@@ -69,7 +65,7 @@ class Word2vecDataset(Dataset):
                         < self.data.discard_table[self.data.word2id[w]]
                     ]
                     # Shrink window by b
-                    b = np.random.randint(0, self.window_size - 1)
+                    b = np.random.randint(0, self.window_size)
                     return [
                         (
                             target,

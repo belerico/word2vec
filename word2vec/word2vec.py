@@ -2,7 +2,7 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import time
-from word2vec.data.input_data import InputData
+from word2vec.data.vocab import Vocab
 from word2vec.data.dataset import Word2vecDataset
 from word2vec.model import SkipGram
 
@@ -11,8 +11,9 @@ class Word2Vec:
     def __init__(
         self,
         train_file=None,
-        output_vocab_dir=None,
-        output_vec_file=None,
+        input_vocab_path=None,
+        output_vocab_path=None,
+        output_vec_path=None,
         emb_dimension=100,
         batch_size=1,
         min_count=5,
@@ -22,9 +23,12 @@ class Word2Vec:
         initial_lr=0.001,
     ):
 
-        self.data = InputData(train_file, min_count)
-        if output_vocab_dir:
-            self.data.save_vocab(output_vocab_dir)
+        if input_vocab_path:
+            self.data = Vocab.load_vocab(input_vocab_path)
+        else:
+            self.data = Vocab(train_file, min_count)
+            if output_vocab_path and not input_vocab_path:
+                self.data.save_vocab(output_vocab_path)
 
         dataset = Word2vecDataset(
             self.data, window_size=window_size, ns_size=ns_size,
@@ -37,7 +41,7 @@ class Word2Vec:
             collate_fn=dataset.collate,
         )
 
-        self.output_vec_file = output_vec_file
+        self.output_vec_path = output_vec_path
         self.emb_size = len(self.data.word2id)
         self.emb_dimension = emb_dimension
         self.batch_size = batch_size
@@ -52,6 +56,8 @@ class Word2Vec:
 
     def train(self):
         optimizer = optim.SGD(self.model.parameters(), lr=self.initial_lr)
+        lr = self.initial_lr
+
         for epoch in range(self.epochs):
 
             running_loss = 0.0
@@ -82,16 +88,20 @@ class Word2Vec:
                             for param_group in optimizer.param_groups:
                                 param_group["lr"] = lr
 
+                    if i % 200 == 0:
                         print(
-                            "Processed sentences: {:.4f}%, Elapsed: {:.2f}s".format(
+                            "Progress: {:.4f}%, Elapsed: {:.2f}s, Lr: {}, Loss: {:.4f}".format(
                                 ((i / self.data.sentence_cnt) * 100),
                                 time.time() - t0,
+                                round(lr, 8),
+                                running_loss / word_cnt,
                             )
                         )
 
-            epoch_loss = running_loss / len(self.dataloader)
             print(
                 "Epoch: {}, Elapsed: {:.2f}s, Training Loss: {:.4f}".format(
-                    epoch, time.time() - t0, epoch_loss
+                    epoch, time.time() - t0, running_loss / word_cnt
                 )
             )
+        if self.output_vec_path:
+            self.model.save_embeddings(self.data.id2word, self.output_vec_path)
