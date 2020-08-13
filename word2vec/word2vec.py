@@ -74,7 +74,11 @@ class Word2Vec:
             t0 = time.time()
 
             for i, sample_batched in enumerate(self.dataloader):
-                if len(sample_batched[0]) > 0 and len(sample_batched[1]) > 0:
+                if (
+                    len(sample_batched)
+                    and len(sample_batched[0]) > 0
+                    and len(sample_batched[1]) > 0
+                ):
 
                     pos_u = sample_batched[0].to(self.device)
                     pos_v = sample_batched[1].to(self.device)

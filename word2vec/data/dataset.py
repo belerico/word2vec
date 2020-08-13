@@ -61,7 +61,7 @@ class Word2vecDataset(Dataset):
                     else:
                         line += char
 
-            if line != "\n" and len(line) > 1:
+            if len(line) > 1:
                 words = line.split()
                 if len(words) > 1:
                     wids = []
@@ -109,7 +109,7 @@ class Word2vecDataset(Dataset):
                                 + subsampled_wids[i + 1 : i + b + 1]
                                 if c in wids[max(0, i - b) : i] + wids[i + 1 : i + b + 1]
                             ]
-                            if context:
+                            if len(context) > 0:
                                 examples.append(
                                     (
                                         target,
@@ -139,8 +139,11 @@ class Word2vecDataset(Dataset):
         ]
         all_neg = [neg for b in batches for _, _, neg in b if len(b) > 0]
 
-        return (
-            torch.LongTensor(all_target),
-            torch.LongTensor(pad_sequence(all_context, batch_first=True)),
-            torch.LongTensor(all_neg),
-        )
+        if all_context:
+            return (
+                torch.LongTensor(all_target),
+                torch.LongTensor(pad_sequence(all_context, batch_first=True)),
+                torch.LongTensor(all_neg),
+            )
+        else:
+            return []

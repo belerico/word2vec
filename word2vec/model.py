@@ -21,7 +21,7 @@ class Word2Vec(nn.Module):
         init_range = 0.5 / self.emb_dimension
         init.uniform_(self.u_embs.weight.data, -init_range, init_range)
         init.constant_(self.v_embs.weight.data, 0)
-    
+
     def forward(self, pos_u, pos_v, neg_v):
         raise NotImplementedError
 
@@ -80,7 +80,10 @@ class CBOW(Word2Vec):
         mean_v_embs = torch.mean(v_embs, 1)
 
         score = torch.mul(u_embs, mean_v_embs).squeeze()
-        score = torch.sum(score, dim=1)
+        try:
+            score = torch.sum(score, dim=1)
+        except IndexError:
+            score = torch.sum(score.unsqueeze(0), dim=1)
         score = F.logsigmoid(score)
 
         neg_v_embs = self.v_embs(neg_v)
