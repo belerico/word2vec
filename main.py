@@ -8,7 +8,8 @@ from word2vec.data.vocab import Vocab
 from word2vec.word2vec import Word2Vec
 
 if __name__ == "__main__":
-    # data = Vocab(train_file="./word2vec/data/dataset/sample.txt", min_count=5,)
+    # data = Vocab.load_vocab("./vocab/vocab_sample_pad.pkl")
+
     # data.init_vocab()
     # data.init_unigram_table()
     # data.init_keep_table()
@@ -19,13 +20,13 @@ if __name__ == "__main__":
     # print("Unigram table: ", "\n", data.unigram_table)
     # print("Sorted word IDs by freq: ", "\n", data.sorted)
 
-    # dataset = Word2vecDataset(data, window_size=5)
+    # dataset = Word2vecDataset(data, window_size=10, sg=0)
     # dataloader = DataLoader(
     #     dataset,
     #     batch_size=1,
     #     shuffle=False,
     #     num_workers=0,
-    #     collate_fn=dataset.collate,
+    #     collate_fn=dataset.collate_cw
     # )
 
     # for i, batch in enumerate(dataloader):
@@ -38,15 +39,16 @@ if __name__ == "__main__":
     #     print(batch[2])
 
     w2v = Word2Vec(
-        train_file="./word2vec/data/dataset/text8.txt",
-        input_vocab_path=None,
-        output_vocab_path="./vocab/vocab_text8.pkl",
-        output_vec_path="./vec/vec_text8",
+        train_file="./word2vec/data/dataset/sample.txt",
+        input_vocab_path="./vocab/vocab_sample.pkl",
+        output_vocab_path=None,
+        output_vec_path="./vec/vec_sample",
         output_vec_format="pkl",
+        sg=0,
         min_count=5,
         batch_size=1,
-        emb_dimension=100,
-        epochs=20,
+        emb_dimension=10,
+        epochs=200,
         ns_size=10,
     )
     w2v.train()

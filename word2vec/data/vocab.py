@@ -36,6 +36,11 @@ class Vocab:
         self.init_vocab()
         self.init_unigram_table()
 
+        # Add padding index
+        self.id2word[0] = "PAD"
+        self.word2id["PAD"] = 0
+        self.word_freqs[0] = 0
+
     def save_vocab(self, vocab_path):
         if not os.path.exists(vocab_path):
             if not os.path.exists(os.path.dirname(vocab_path)):
@@ -70,11 +75,7 @@ class Vocab:
                 line = ""
 
                 # Read file in chunk or until a new line
-                while (
-                    not eof
-                    and char_read < self.max_sentence_length
-                    and not new_line
-                ):
+                while not eof and char_read < self.max_sentence_length and not new_line:
                     char = f.read(1)
                     if char == "\n":
                         new_line = True
@@ -103,18 +104,15 @@ class Vocab:
                             word_freqs[w] = word_freqs.get(w, 0) + 1
                             self.word_cnt += 1
                             if self.word_cnt % 1e6 == 0:
-                                print(
-                                    "Read "
-                                    + str(int(self.word_cnt / 1e6))
-                                    + "M words"
-                                )
+                                print("Read " + str(int(self.word_cnt / 1e6)) + "M words")
 
         # Replace word keys with ids and
         # keep only those words with frequency >= min count
         # and create the discard probability table
         i = 0
-        wid = 0
-        self.discard_table = []
+        wid = 1
+        self.discard_table = [0]
+
         for w, c in word_freqs.items():
             if c >= self.min_count:
                 # Update stats only for words that has a frequency
@@ -146,7 +144,7 @@ class Vocab:
         all_pow_freqs = np.sum(pow_freqs)
         count = np.round(pow_freqs / all_pow_freqs * self.unigram_table_size)
         for sorted_wid, c in enumerate(count):
-            self.unigram_table += [self.sorted[sorted_wid]] * int(c)
+            self.unigram_table += [self.sorted[sorted_wid] + 1] * int(c)
         np.random.shuffle(self.unigram_table)
         print("Done")
 
@@ -156,14 +154,12 @@ class Vocab:
     def init_discard_table(self):
         print("Building discard table for subsampling")
         x = np.array(list(self.word_freqs.values())) / self.word_cnt
-        self.discard_table = (np.sqrt(x / self.sample_thr) + 1) * (
-            self.sample_thr / x
-        )
+        self.discard_table = (np.sqrt(x / self.sample_thr) + 1) * (self.sample_thr / x)
         print("Done")
 
-    def get_negative_samples(self, target: int, context: int, ns_size=5):
-        neg = self.unigram_table[self.neg_idx: self.neg_idx + ns_size]
+    def get_negative_samples(self, ns_size=5):
+        neg = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
         self.neg_idx = (self.neg_idx + ns_size) % len(self.unigram_table)
         if len(neg) != ns_size:
-            return np.concatenate((neg, self.unigram_table[0: self.neg_idx]))
+            return np.concatenate((neg, self.unigram_table[0 : self.neg_idx]))
         return neg

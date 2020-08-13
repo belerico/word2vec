@@ -1,12 +1,12 @@
 import time
-
+from word2vec.data.dataset import Word2vecDataset
+from word2vec.data.vocab import Vocab
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from word2vec.data.dataset import Word2vecDataset
-from word2vec.data.vocab import Vocab
-from word2vec.model import SkipGram
+
+from word2vec.model import SkipGram, CBOW
 
 
 class Word2Vec:
@@ -17,6 +17,7 @@ class Word2Vec:
         output_vocab_path=None,
         output_vec_path=None,
         output_vec_format=None,
+        sg=1,
         emb_dimension=100,
         batch_size=1,
         min_count=5,
@@ -34,14 +35,14 @@ class Word2Vec:
                 self.data.save_vocab(output_vocab_path)
 
         dataset = Word2vecDataset(
-            self.data, window_size=window_size, ns_size=ns_size,
+            self.data, sg=sg, window_size=window_size, ns_size=ns_size
         )
         self.dataloader = DataLoader(
             dataset,
             batch_size=batch_size,
             shuffle=False,
-            num_workers=0,
-            collate_fn=dataset.collate,
+            num_workers=4,
+            collate_fn=dataset.collate_sg if sg else dataset.collate_cw,
         )
 
         self.output_vec_path = output_vec_path
@@ -51,7 +52,11 @@ class Word2Vec:
         self.batch_size = batch_size
         self.epochs = epochs
         self.initial_lr = initial_lr
-        self.model = SkipGram(self.emb_size, self.emb_dimension)
+        self.model = (
+            SkipGram(self.emb_size, self.emb_dimension)
+            if sg
+            else CBOW(self.emb_size, self.emb_dimension)
+        )
 
         self.use_cuda = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.use_cuda else "cpu")
@@ -69,7 +74,7 @@ class Word2Vec:
             t0 = time.time()
 
             for i, sample_batched in enumerate(self.dataloader):
-                if len(sample_batched[0]) > 0:
+                if len(sample_batched[0]) > 0 and len(sample_batched[1]) > 0:
 
                     pos_u = sample_batched[0].to(self.device)
                     pos_v = sample_batched[1].to(self.device)
@@ -85,19 +90,14 @@ class Word2Vec:
 
                     if word_cnt > 10000:
                         word_cnt = word_cnt - 10000
-                        lr = self.initial_lr * (
-                            1.0 - (i + 1) / self.data.sentence_cnt
-                        )
+                        lr = self.initial_lr * (1.0 - (i + 1) / self.data.sentence_cnt)
                         if lr >= self.initial_lr * 0.0001:
                             for param_group in optimizer.param_groups:
                                 param_group["lr"] = lr
 
                     if i % 200 == 0:
                         print(
-                            "Progress: {:.4f}%, \
-                             Elapsed: {:.2f}s, \
-                             Lr: {}, \
-                             Loss: {:.4f}".format(
+                            "Progress: {:.4f}%, Elapsed: {:.2f}s, Lr: {}, Loss: {:.4f}".format(
                                 ((i / self.data.sentence_cnt) * 100),
                                 time.time() - t0,
                                 round(lr, 8),
