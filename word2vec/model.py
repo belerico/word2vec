@@ -60,7 +60,10 @@ class SkipGram(Word2Vec):
         v_embs = self.v_embs(pos_v)
 
         score = torch.mul(u_embs, v_embs).squeeze()
-        score = torch.sum(score, dim=1)
+        try:
+            score = torch.sum(score, dim=1)
+        except IndexError:
+            score = torch.sum(score.unsqueeze(0), dim=1)
         score = F.logsigmoid(score)
 
         neg_v_embs = self.v_embs(neg_v)
