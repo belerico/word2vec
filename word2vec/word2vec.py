@@ -92,12 +92,12 @@ class Word2Vec:
 
                     running_loss += loss.item()
                     word_cnt += len(sample_batched[0])
-                    actual_word_cnt += word_cnt
+                    actual_word_cnt += len(sample_batched[0])
 
                     if word_cnt > 10000:
                         word_cnt = word_cnt - 10000
                         lr = self.initial_lr * (
-                            1.0 - actual_word_cnt / (epoch * self.data.word_cnt + 1)
+                            1.0 - actual_word_cnt / ((epoch + 1) * self.data.word_cnt)
                         )
                         if lr >= self.initial_lr * 0.0001:
                             for param_group in optimizer.param_groups:
@@ -113,10 +113,9 @@ class Word2Vec:
                             )
                         )
             
-            print(actual_word_cnt, self.data.word_cnt)
             print(
                 "Epoch: {}, Elapsed: {:.2f}s, Training Loss: {:.4f}".format(
-                    epoch, time.time() - t0, running_loss / word_cnt
+                    epoch, time.time() - t0, running_loss / actual_word_cnt
                 )
             )
         if self.output_vec_path:

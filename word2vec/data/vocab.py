@@ -113,7 +113,7 @@ class Vocab:
                                     self.unique_word_cnt += 1
                                     wid += 1
                                 self.word_freqs[self.word2id[w]] = word_freqs[w]
-                            if self.word_cnt % 1e6 == 0 and self.word_cnt > 1e6:
+                            if self.word_cnt % 1e6 == 0 and self.word_cnt >= 1e6:
                                 print("Read " + str(int(self.word_cnt / 1e6)) + "M words")
             print("Done")
 
@@ -126,7 +126,7 @@ class Vocab:
                 (np.sqrt(f / self.sample_thr) + 1) * (self.sample_thr / f)
             )
         print("Done")
-        
+
         print("Word count:", self.word_cnt)
         print("Sentence count:", self.sentence_cnt)
         print("Unique word count:", self.unique_word_cnt)
