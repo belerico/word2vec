@@ -99,9 +99,10 @@ class Word2Vec:
                         lr = self.initial_lr * (
                             1.0 - actual_word_cnt / ((epoch + 1) * self.data.word_cnt)
                         )
-                        if lr >= self.initial_lr * 0.0001:
-                            for param_group in optimizer.param_groups:
-                                param_group["lr"] = lr
+                        if lr < self.initial_lr * 0.0001:
+                            lr = self.initial_lr * 0.0001
+                        for param_group in optimizer.param_groups:
+                            param_group["lr"] = lr
 
                     if i % 200 == 0:
                         print(
