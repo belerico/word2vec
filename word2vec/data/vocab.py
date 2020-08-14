@@ -66,9 +66,10 @@ class Vocab:
     def init_vocab(self):
         with open(self.train_file, "r") as f:
             eof = False
+            wid = 1
             word_freqs = dict()
 
-            print("Building vocab and discard table for subsampling")
+            print("Building vocab")
             while not eof:
                 char_read = 0
                 new_line = False
@@ -102,35 +103,30 @@ class Vocab:
                     for w in line.strip().split():
                         if len(w) > 0:
                             word_freqs[w] = word_freqs.get(w, 0) + 1
-                            self.word_cnt += 1
-                            if self.word_cnt % 1e6 == 0:
+                            if word_freqs[w] >= self.min_count:
+                                self.word_cnt += 1
+                                if word_freqs[w] == self.min_count:
+                                    # Update stats only for words that has a frequency
+                                    # greater than min_count
+                                    self.id2word[wid] = w
+                                    self.word2id[w] = wid
+                                    self.unique_word_cnt += 1
+                                    wid += 1
+                                self.word_freqs[self.word2id[w]] = word_freqs[w]
+                            if self.word_cnt % 1e6 == 0 and self.word_cnt > 1e6:
                                 print("Read " + str(int(self.word_cnt / 1e6)) + "M words")
+            print("Done")
 
-        # Replace word keys with ids and
-        # keep only those words with frequency >= min count
-        # and create the discard probability table
-        i = 0
-        wid = 1
+        # Create the discard probability table
         self.discard_table = [0]
-
-        for w, c in word_freqs.items():
-            if c >= self.min_count:
-                # Update stats only for words that has a frequency
-                # greater than min_count
-                self.id2word[wid] = w
-                self.word2id[w] = wid
-                self.word_freqs[wid] = c
-                self.unique_word_cnt += 1
-
-                f = c / self.word_cnt
-                self.discard_table.append(
-                    (np.sqrt(f / self.sample_thr) + 1) * (self.sample_thr / f)
-                )
-
-                i += 1
-                wid += 1
-
+        print("Building discard table for subsampling")
+        for _, c in self.word_freqs.items():
+            f = c / self.word_cnt
+            self.discard_table.append(
+                (np.sqrt(f / self.sample_thr) + 1) * (self.sample_thr / f)
+            )
         print("Done")
+        
         print("Word count:", self.word_cnt)
         print("Sentence count:", self.sentence_cnt)
         print("Unique word count:", self.unique_word_cnt)

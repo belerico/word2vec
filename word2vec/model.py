@@ -15,8 +15,8 @@ class Word2Vec(nn.Module):
 
         # u_embs: embedding for target word
         # v_embs: embedding for context words
-        self.u_embs = nn.Embedding(emb_size, emb_dimension, sparse=True)
-        self.v_embs = nn.Embedding(emb_size, emb_dimension, sparse=True)
+        self.u_embs = nn.Embedding(emb_size, emb_dimension, sparse=True, padding_idx=0)
+        self.v_embs = nn.Embedding(emb_size, emb_dimension, sparse=True, padding_idx=0)
 
         init_range = 0.5 / self.emb_dimension
         init.uniform_(self.u_embs.weight.data, -init_range, init_range)
@@ -59,15 +59,19 @@ class SkipGram(Word2Vec):
         u_embs = self.u_embs(pos_u)
         v_embs = self.v_embs(pos_v)
 
-        score = torch.mul(u_embs, v_embs).squeeze()
-        try:
-            score = torch.sum(score, dim=1)
-        except IndexError:
-            score = torch.sum(score.unsqueeze(0), dim=1)
+        # score = torch.mul(u_embs, v_embs).squeeze()
+        # try:
+        #     score = torch.sum(score, dim=1)
+        # except IndexError:
+        #     score = torch.sum(score.unsqueeze(0), dim=1)
+        score = torch.einsum("ij,ij->i", [u_embs, v_embs])  # Batch dot product
         score = F.logsigmoid(score)
 
         neg_v_embs = self.v_embs(neg_v)
-        neg_score = torch.bmm(neg_v_embs, u_embs.unsqueeze(2)).squeeze()
+        # neg_score = torch.bmm(neg_v_embs, u_embs.unsqueeze(2))
+        neg_score = torch.einsum(
+            "ijk,ikl->ijl", [neg_v_embs, u_embs.unsqueeze(2)]
+        )  # Batch matrix multiplication
         neg_score = F.logsigmoid(-1 * neg_score)
 
         return -1 * (torch.sum(score) + torch.sum(neg_score))
@@ -82,15 +86,19 @@ class CBOW(Word2Vec):
         v_embs = self.v_embs(pos_v)
         mean_v_embs = torch.mean(v_embs, 1)
 
-        score = torch.mul(u_embs, mean_v_embs).squeeze()
-        try:
-            score = torch.sum(score, dim=1)
-        except IndexError:
-            score = torch.sum(score.unsqueeze(0), dim=1)
+        # score = torch.mul(u_embs, mean_v_embs).squeeze()
+        # try:
+        #     score = torch.sum(score, dim=1)
+        # except IndexError:
+        #     score = torch.sum(score.unsqueeze(0), dim=1)
+        score = torch.einsum("ij,ij->i", [u_embs, mean_v_embs])  # Batch dot product
         score = F.logsigmoid(score)
 
         neg_v_embs = self.v_embs(neg_v)
-        neg_score = torch.bmm(neg_v_embs, u_embs.unsqueeze(2)).squeeze()
+        # neg_score = torch.bmm(neg_v_embs, u_embs.unsqueeze(2))
+        neg_score = torch.einsum(
+            "ijk,ikl->ijl", [neg_v_embs, u_embs.unsqueeze(2)]
+        )  # Batch matrix multiplication
         neg_score = F.logsigmoid(-1 * neg_score)
 
         return -1 * (torch.sum(score) + torch.sum(neg_score))
