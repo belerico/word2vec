@@ -69,16 +69,16 @@ class Word2Vec:
         self.epochs = epochs
         self.initial_lr = initial_lr
 
-        self.use_gpu = torch.cuda.is_available() and use_gpu
-        self.device = torch.device("cuda" if self.use_gpu else "cpu")
-        if self.use_gpu:
-            self.model.cuda()
-
         self.model = (
             SkipGram(self.emb_size, self.emb_dimension)
             if sg
             else CBOW(self.emb_size, self.emb_dimension)
         )
+
+        self.use_gpu = torch.cuda.is_available() and use_gpu
+        self.device = torch.device("cuda" if self.use_gpu else "cpu")
+        if self.use_gpu:
+            self.model.cuda()
 
     def train(self):
         optimizer = optim.SGD(self.model.parameters(), lr=self.initial_lr)
