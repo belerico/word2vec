@@ -86,7 +86,6 @@ class Word2Vec:
 
         for epoch in range(self.epochs):
 
-            wib = 0  # Word In Batches
             running_loss = 0.0
             word_cnt = 0
             actual_word_cnt = 0
@@ -109,9 +108,8 @@ class Word2Vec:
                     optimizer.step()
 
                     running_loss += loss.item()
-                    wib = sum(sample_batched[3])
-                    word_cnt += wib
-                    actual_word_cnt += wib
+                    word_cnt += sample_batched[3]
+                    actual_word_cnt += sample_batched[3]
 
                     if word_cnt > 10000:
                         word_cnt = word_cnt - 10000

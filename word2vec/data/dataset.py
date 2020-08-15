@@ -97,18 +97,20 @@ class Word2vecDataset(Dataset):
                         b = np.random.randint(1, self.window_size + 1)
 
                     if self.sg:
-                        return [
-                            (
-                                target,
-                                context,
-                                self.data.get_negative_samples(self.ns_size),
-                                len(wids),
-                            )
-                            for i, target in enumerate(subsampled_wids)
-                            for context in subsampled_wids[max(i - b, 0) : i + b + 1]
-                            if target != context
-                            and context in wids[max(i - b, 0) : i + b + 1]
-                        ]
+                        return (
+                            [
+                                (
+                                    target,
+                                    context,
+                                    self.data.get_negative_samples(self.ns_size),
+                                )
+                                for i, target in enumerate(subsampled_wids)
+                                for context in subsampled_wids[max(i - b, 0) : i + b + 1]
+                                if target != context
+                                and context in wids[max(i - b, 0) : i + b + 1]
+                            ],
+                            len(wids),
+                        )
                     else:
                         examples = []
                         for i, target in enumerate(subsampled_wids):
@@ -124,17 +126,16 @@ class Word2vecDataset(Dataset):
                                         target,
                                         context,
                                         self.data.get_negative_samples(self.ns_size),
-                                        len(wids),
                                     )
                                 )
-                        return examples
+                        return examples, len(wids)
 
     @staticmethod
     def collate_sg(batches):
-        all_target = [t for b in batches for t, _, _, _ in b if len(b) > 0]
-        all_context = [c for b in batches for _, c, _, _ in b if len(b) > 0]
-        all_neg = [neg for b in batches for _, _, neg, _ in b if len(b) > 0]
-        all_lengths = [l for b in batches for _, _, _, l in b if len(b) > 0]
+        all_target = [t for b in batches for t, _, _ in b[0] if len(b) > 0]
+        all_context = [c for b in batches for _, c, _ in b[0] if len(b) > 0]
+        all_neg = [neg for b in batches for _, _, neg in b[0] if len(b) > 0]
+        all_lengths = sum([b[1] for b in batches if len(b) > 0])
 
         return (
             torch.LongTensor(all_target),
@@ -145,12 +146,12 @@ class Word2vecDataset(Dataset):
 
     @staticmethod
     def collate_cw(batches):
-        all_target = [t for b in batches for t, _, _, _ in b if len(b) > 0]
+        all_target = [t for b in batches for t, _, _ in b[0] if len(b) > 0]
         all_context = [
-            torch.LongTensor(c) for b in batches for _, c, _, _ in b if len(b) > 0
+            torch.LongTensor(c) for b in batches for _, c, _ in b[0] if len(b) > 0
         ]
-        all_neg = [neg for b in batches for _, _, neg, _ in b if len(b) > 0]
-        all_lengths = [l for b in batches for _, _, _, l in b if len(b) > 0]
+        all_neg = [neg for b in batches for _, _, neg in b[0] if len(b) > 0]
+        all_lengths = sum([b[1] for b in batches if len(b) > 0])
 
         if all_context:
             return (
