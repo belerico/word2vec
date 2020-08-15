@@ -19,6 +19,14 @@ class Word2vecDataset(Dataset):
 
         self.eof = False
         self.data = data
+        if data.max_sentence_length != max_sentence_length:
+            raise Exception(
+                "Max sentence lengths differs between Vocab ("
+                + str(data.max_sentence_length)
+                + ") and parameter ("
+                + str(max_sentence_length)
+                + ")"
+            )
         self.sg = sg
         self.window_size = window_size
         self.shrink_window_size = shrink_window_size
@@ -94,6 +102,7 @@ class Word2vecDataset(Dataset):
                                 target,
                                 context,
                                 self.data.get_negative_samples(self.ns_size),
+                                len(wids),
                             )
                             for i, target in enumerate(subsampled_wids)
                             for context in subsampled_wids[max(i - b, 0) : i + b + 1]
@@ -115,35 +124,40 @@ class Word2vecDataset(Dataset):
                                         target,
                                         context,
                                         self.data.get_negative_samples(self.ns_size),
+                                        len(wids),
                                     )
                                 )
                         return examples
 
     @staticmethod
     def collate_sg(batches):
-        all_target = [t for b in batches for t, _, _ in b if len(b) > 0]
-        all_context = [c for b in batches for _, c, _ in b if len(b) > 0]
-        all_neg = [neg for b in batches for _, _, neg in b if len(b) > 0]
+        all_target = [t for b in batches for t, _, _, _ in b if len(b) > 0]
+        all_context = [c for b in batches for _, c, _, _ in b if len(b) > 0]
+        all_neg = [neg for b in batches for _, _, neg, _ in b if len(b) > 0]
+        all_lengths = [l for b in batches for _, _, _, l in b if len(b) > 0]
 
         return (
             torch.LongTensor(all_target),
             torch.LongTensor(all_context),
             torch.LongTensor(all_neg),
+            all_lengths,
         )
 
     @staticmethod
     def collate_cw(batches):
-        all_target = [t for b in batches for t, _, _ in b if len(b) > 0]
+        all_target = [t for b in batches for t, _, _, _ in b if len(b) > 0]
         all_context = [
-            torch.LongTensor(c) for b in batches for _, c, _ in b if len(b) > 0
+            torch.LongTensor(c) for b in batches for _, c, _, _ in b if len(b) > 0
         ]
-        all_neg = [neg for b in batches for _, _, neg in b if len(b) > 0]
+        all_neg = [neg for b in batches for _, _, neg, _ in b if len(b) > 0]
+        all_lengths = [l for b in batches for _, _, _, l in b if len(b) > 0]
 
         if all_context:
             return (
                 torch.LongTensor(all_target),
                 torch.LongTensor(pad_sequence(all_context, batch_first=True)),
                 torch.LongTensor(all_neg),
+                all_lengths,
             )
         else:
             return []

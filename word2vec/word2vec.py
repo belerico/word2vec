@@ -22,26 +22,42 @@ class Word2Vec:
         batch_size=1,
         min_count=5,
         window_size=5,
+        shrink_window_size=True,
         ns_size=5,
+        max_sentence_length=1000,
+        unigram_pow=0.75,
+        sample_thr=0.001,
+        unigram_table_size=1e8,
         epochs=10,
         initial_lr=0.025,
+        use_gpu=1,
     ):
 
         if input_vocab_path:
             self.data = Vocab.load_vocab(input_vocab_path)
         else:
-            self.data = Vocab(train_file, min_count)
+            self.data = Vocab(
+                train_file,
+                min_count,
+                max_sentence_length=max_sentence_length,
+                unigram_pow=unigram_pow,
+                unigram_table_size=unigram_table_size,
+                sample_thr=sample_thr
+            )
             if output_vocab_path and not input_vocab_path:
                 self.data.save_vocab(output_vocab_path)
 
         dataset = Word2vecDataset(
-            self.data, sg=sg, window_size=window_size, ns_size=ns_size
+            self.data,
+            sg=sg,
+            window_size=window_size,
+            ns_size=ns_size,
+            shrink_window_size=shrink_window_size,
         )
         self.dataloader = DataLoader(
             dataset,
             batch_size=batch_size,
             shuffle=False,
-            num_workers=4,
             collate_fn=dataset.collate_sg if sg else dataset.collate_cw,
         )
 
@@ -52,16 +68,17 @@ class Word2Vec:
         self.batch_size = batch_size
         self.epochs = epochs
         self.initial_lr = initial_lr
+
+        self.use_gpu = torch.cuda.is_available() and use_gpu
+        self.device = torch.device("cuda" if self.use_gpu else "cpu")
+        if self.use_gpu:
+            self.model.cuda()
+
         self.model = (
             SkipGram(self.emb_size, self.emb_dimension)
             if sg
             else CBOW(self.emb_size, self.emb_dimension)
         )
-
-        self.use_cuda = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.use_cuda else "cpu")
-        if self.use_cuda:
-            self.model.cuda()
 
     def train(self):
         optimizer = optim.SGD(self.model.parameters(), lr=self.initial_lr)
@@ -69,6 +86,7 @@ class Word2Vec:
 
         for epoch in range(self.epochs):
 
+            wib = 0  # Word In Batches
             running_loss = 0.0
             word_cnt = 0
             actual_word_cnt = 0
@@ -91,8 +109,9 @@ class Word2Vec:
                     optimizer.step()
 
                     running_loss += loss.item()
-                    word_cnt += len(sample_batched[0])
-                    actual_word_cnt += len(sample_batched[0])
+                    wib = sum(sample_batched[3])
+                    word_cnt += wib
+                    actual_word_cnt += wib
 
                     if word_cnt > 10000:
                         word_cnt = word_cnt - 10000
@@ -113,7 +132,7 @@ class Word2Vec:
                                 running_loss / (actual_word_cnt),
                             )
                         )
-            
+
             print(
                 "Epoch: {}, Elapsed: {:.2f}s, Training Loss: {:.4f}".format(
                     epoch, time.time() - t0, running_loss / actual_word_cnt
