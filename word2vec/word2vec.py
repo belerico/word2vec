@@ -91,6 +91,7 @@ class Word2Vec:
         running_loss = 0.0
         word_cnt = 0
         actual_word_cnt = 0
+        update_lr = True
 
         for epoch in range(self.epochs):
             t0 = time.time()
@@ -117,13 +118,18 @@ class Word2Vec:
 
                     if word_cnt > 10000:
                         word_cnt = word_cnt - 10000
-                        lr = self.initial_lr * (
-                            1.0 - actual_word_cnt / ((epoch + 1) * self.data.word_cnt)
-                        )
-                        if lr < self.initial_lr * 0.0001:
+                        if lr <= self.initial_lr * 0.0001:
+                            update_lr = False
                             lr = self.initial_lr * 0.0001
-                        for param_group in optimizer.param_groups:
-                            param_group["lr"] = lr
+                            for param_group in optimizer.param_groups:
+                                param_group["lr"] = lr
+                        else:
+                            lr = self.initial_lr * (
+                                1.0 - actual_word_cnt / ((epoch + 1) * self.data.word_cnt)
+                            )
+                        if update_lr:
+                            for param_group in optimizer.param_groups:
+                                param_group["lr"] = lr
 
                     if i % 200 == 0:
                         print(
