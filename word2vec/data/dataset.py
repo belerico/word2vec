@@ -15,7 +15,6 @@ class Word2vecDataset(Dataset):
         window_size=5,
         shrink_window_size=True,
         ns_size=5,
-        max_sentence_length=1000,
     ):
 
         self.data = data
@@ -24,7 +23,6 @@ class Word2vecDataset(Dataset):
         self.shrink_window_size = shrink_window_size
         self.ns_size = ns_size
         self.sentences_file = open(sentences_path, "rb")
-        self.max_sentence_length = max_sentence_length
 
     def __len__(self):
         return self.data.sentence_cnt
