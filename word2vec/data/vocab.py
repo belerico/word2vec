@@ -107,7 +107,7 @@ class Vocab:
                         for w in words:
                             if len(w) > 0:
                                 word_freqs[w] = word_freqs.get(w, 0) + 1
-                                train_words += word_freqs[w]
+                                train_words += 1
                                 sentence.append(w)
                                 if train_words % 1e6 == 0 and train_words >= 1e6:
                                     print(
@@ -149,7 +149,7 @@ class Vocab:
             print("Saving sentences (incrementally) to " + sentences_path)
             with open(os.path.join(sentences_path), "wb") as f:
                 for sentence in sentences:
-                    pickle.dump(sentence, f)
+                    pickle.dump(sentence, f, pickle.HIGHEST_PROTOCOL)
             del sentences
             print("Done")
         else:

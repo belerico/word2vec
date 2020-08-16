@@ -30,54 +30,52 @@ class Word2vecDataset(Dataset):
         return self.data.sentence_cnt
 
     def __getitem__(self, idx):
-        while True:
-            # Load sentences incrementally
-            try:
-                wids = pickle.load(self.sentences_file)
-            except EOFError:
-                self.sentences_file.seek(0, 0)
-                wids = pickle.load(self.sentences_file)
-            subsampled_wids = []
-            for wid in wids:
-                if np.random.rand() < self.data.discard_table[wid]:
-                    subsampled_wids.append(wid)
+        # Load sentences incrementally
+        try:
+            wids = pickle.load(self.sentences_file)
+        except EOFError:
+            self.sentences_file.seek(0, 0)
+            wids = pickle.load(self.sentences_file)
+        subsampled_wids = []
+        for wid in wids:
+            if np.random.rand() < self.data.discard_table[wid]:
+                subsampled_wids.append(wid)
 
-            if subsampled_wids:
+        if subsampled_wids:
 
-                # Shrink window by b
-                b = self.window_size
-                if self.shrink_window_size:
-                    b = np.random.randint(1, self.window_size + 1)
+            # Shrink window by b
+            b = self.window_size
+            if self.shrink_window_size:
+                b = np.random.randint(1, self.window_size + 1)
 
-                examples = []
-                if self.sg:
-                    examples = [
-                        (target, context, self.data.get_negative_samples(self.ns_size),)
-                        for i, target in enumerate(subsampled_wids)
-                        for context in subsampled_wids[max(i - b, 0) : i + b + 1]
-                        if target != context
-                        and context in wids[max(i - b, 0) : i + b + 1]
-                    ]
-                else:
-                    examples = []
-                    for i, target in enumerate(subsampled_wids):
-                        context = [
-                            c
-                            for c in subsampled_wids[max(0, i - b) : i]
-                            + subsampled_wids[i + 1 : i + b + 1]
-                            if c in wids[max(0, i - b) : i] + wids[i + 1 : i + b + 1]
-                        ]
-                        if len(context) > 0:
-                            examples.append(
-                                (
-                                    target,
-                                    context,
-                                    self.data.get_negative_samples(self.ns_size),
-                                )
-                            )
-                return examples, len(wids)
+            examples = []
+            if self.sg:
+                examples = [
+                    (target, context, self.data.get_negative_samples(self.ns_size),)
+                    for i, target in enumerate(subsampled_wids)
+                    for context in subsampled_wids[max(i - b, 0) : i + b + 1]
+                    if target != context and context in wids[max(i - b, 0) : i + b + 1]
+                ]
             else:
-                return [], len(wids)
+                examples = []
+                for i, target in enumerate(subsampled_wids):
+                    context = [
+                        c
+                        for c in subsampled_wids[max(0, i - b) : i]
+                        + subsampled_wids[i + 1 : i + b + 1]
+                        if c in wids[max(0, i - b) : i] + wids[i + 1 : i + b + 1]
+                    ]
+                    if len(context) > 0:
+                        examples.append(
+                            (
+                                target,
+                                context,
+                                self.data.get_negative_samples(self.ns_size),
+                            )
+                        )
+            return examples, len(wids)
+        else:
+            return [], len(wids)
 
     @staticmethod
     def collate_sg(batches):
