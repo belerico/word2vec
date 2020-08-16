@@ -87,11 +87,12 @@ class Word2Vec:
         optimizer = optim.SGD(self.model.parameters(), lr=self.initial_lr)
         lr = self.initial_lr
 
-        for epoch in range(self.epochs):
+        # Global running loss and word count
+        running_loss = 0.0
+        word_cnt = 0
+        actual_word_cnt = 0
 
-            running_loss = 0.0
-            word_cnt = 0
-            actual_word_cnt = 0
+        for epoch in range(self.epochs):
             t0 = time.time()
 
             for i, sample_batched in enumerate(self.dataloader):
