@@ -8,6 +8,7 @@ class Vocab:
     def __init__(
         self,
         train_file=None,
+        sentences_path=None,
         min_count=5,
         unigram_pow=0.75,
         sample_thr=0.001,
@@ -33,7 +34,7 @@ class Vocab:
         self.neg_idx = 0
         self.unigram_table = []
         self.sorted = []
-        self.init_vocab()
+        self.init_vocab(sentences_path)
         self.init_unigram_table()
 
         # Add padding index
@@ -63,11 +64,12 @@ class Vocab:
         else:
             raise FileNotFoundError("'" + vocab_path + "' not found")
 
-    def init_vocab(self):
+    def init_vocab(self, sentences_path: str):
         with open(self.train_file, "r") as f:
             eof = False
-            wid = 1
+            train_words = 0
             word_freqs = dict()
+            sentences = []
 
             print("Building vocab")
             while not eof:
@@ -101,27 +103,57 @@ class Vocab:
                     words = line.strip().split()
                     # Collect infos only if in a sentence there're at least 2 words
                     if len(words) > 1:
-                        self.sentence_cnt += 1
+                        sentence = []
                         for w in words:
                             if len(w) > 0:
                                 word_freqs[w] = word_freqs.get(w, 0) + 1
-                                if word_freqs[w] >= self.min_count:
-                                    self.word_cnt += 1
-                                    if word_freqs[w] == self.min_count:
-                                        # Update stats only for words that has a frequency
-                                        # greater than min_count
-                                        self.id2word[wid] = w
-                                        self.word2id[w] = wid
-                                        self.unique_word_cnt += 1
-                                        wid += 1
-                                    self.word_freqs[self.word2id[w]] = word_freqs[w]
-                                if self.word_cnt % 1e6 == 0 and self.word_cnt >= 1e6:
+                                train_words += word_freqs[w]
+                                sentence.append(w)
+                                if train_words % 1e6 == 0 and train_words >= 1e6:
                                     print(
-                                        "Read "
-                                        + str(int(self.word_cnt / 1e6))
-                                        + "M words"
+                                        "Read " + str(int(train_words / 1e6)) + "M words"
                                     )
+                        sentences.append(sentence)
             print("Done")
+
+        print("Updating info")
+        # Keep only those words with a frequency >= min_count
+        wid = 1
+        for w, c in word_freqs.items():
+            if c >= self.min_count:
+                self.word2id[w] = wid
+                self.id2word[wid] = w
+                self.word_freqs[w] = c
+                wid += 1
+        del word_freqs
+        self.unique_word_cnt = wid - 1
+        print("Done")
+
+        print("Building sentences")
+        for i, sentence in enumerate(sentences):
+            updated_sentence = []
+            for w in sentence:
+                if w in self.word2id:
+                    updated_sentence.append(self.word2id[w])
+                    self.word_cnt += 1
+            if updated_sentence:
+                sentences[i] = updated_sentence
+                self.sentence_cnt += 1
+            else:
+                del sentences[i]
+        print("Done")
+
+        if not os.path.exists(sentences_path):
+            if not os.path.exists(os.path.dirname(sentences_path)):
+                os.makedirs(os.path.dirname(sentences_path))
+            print("Saving sentences (incrementally) to " + sentences_path)
+            with open(os.path.join(sentences_path), "wb") as f:
+                for sentence in sentences:
+                    pickle.dump(sentence, f)
+            del sentences
+            print("Done")
+        else:
+            raise FileExistsError("'" + sentences_path + "' already exists")
 
         # Create the discard probability table
         self.discard_table = [0]
@@ -133,7 +165,8 @@ class Vocab:
             )
         print("Done")
 
-        print("Word count:", self.word_cnt)
+        print("Train words:", train_words)
+        print("Word (after min) count:", self.word_cnt)
         print("Sentence count:", self.sentence_cnt)
         print("Unique word count:", self.unique_word_cnt)
 

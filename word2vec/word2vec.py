@@ -17,6 +17,7 @@ class Word2Vec:
         output_vocab_path=None,
         output_vec_path=None,
         output_vec_format=None,
+        sentences_path=None,
         sg=1,
         emb_dimension=100,
         batch_size=1,
@@ -37,12 +38,13 @@ class Word2Vec:
             self.data = Vocab.load_vocab(input_vocab_path)
         else:
             self.data = Vocab(
-                train_file,
-                min_count,
+                train_file=train_file,
+                sentences_path=sentences_path,
+                min_count=min_count,
                 max_sentence_length=max_sentence_length,
                 unigram_pow=unigram_pow,
                 unigram_table_size=unigram_table_size,
-                sample_thr=sample_thr
+                sample_thr=sample_thr,
             )
             if output_vocab_path and not input_vocab_path:
                 self.data.save_vocab(output_vocab_path)
@@ -53,6 +55,7 @@ class Word2Vec:
             window_size=window_size,
             ns_size=ns_size,
             shrink_window_size=shrink_window_size,
+            sentences_path=sentences_path
         )
         self.dataloader = DataLoader(
             dataset,
