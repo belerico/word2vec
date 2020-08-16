@@ -82,7 +82,12 @@ class CBOW(Word2Vec):
         u_embs = self.u_embs(pos_u)
         v_embs = self.v_embs(pos_v)
 
-        score = torch.mul(u_embs, torch.mean(v_embs, 1))
+        # Mean of context vector without considering padding idx (0)
+        mean_v_embs = torch.true_divide(
+            torch.sum(v_embs, dim=1), (pos_v != 0).sum(dim=1).unsqueeze(dim=1)
+        )
+
+        score = torch.mul(u_embs, mean_v_embs)
         score = torch.sum(score, dim=1)
         # score = torch.einsum("ij,ij->i", [u_embs, torch.mean(v_embs, 1)])  # Batch dot product
         score = F.logsigmoid(score)
