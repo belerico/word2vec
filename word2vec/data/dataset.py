@@ -69,9 +69,9 @@ class Word2vecDataset(Dataset):
                     else:
                         line += char
 
-            if len(line) > 1:
-                words = line.split()
-                if len(words) > 1:
+            if line != "\n" and line != "":
+                words = line.strip().split()
+                if len(words) > 0:
                     wids = []
                     subsampled_wids = []
                     for w in words:

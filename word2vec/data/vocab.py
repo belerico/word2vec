@@ -98,23 +98,29 @@ class Vocab:
                             line += char
 
                 if line != "\n" and line != "":
-                    if len(line) > 1:
+                    words = line.strip().split()
+                    # Collect infos only if in a sentence there're at least 2 words
+                    if len(words) > 1:
                         self.sentence_cnt += 1
-                    for w in line.strip().split():
-                        if len(w) > 0:
-                            word_freqs[w] = word_freqs.get(w, 0) + 1
-                            if word_freqs[w] >= self.min_count:
-                                self.word_cnt += 1
-                                if word_freqs[w] == self.min_count:
-                                    # Update stats only for words that has a frequency
-                                    # greater than min_count
-                                    self.id2word[wid] = w
-                                    self.word2id[w] = wid
-                                    self.unique_word_cnt += 1
-                                    wid += 1
-                                self.word_freqs[self.word2id[w]] = word_freqs[w]
-                            if self.word_cnt % 1e6 == 0 and self.word_cnt >= 1e6:
-                                print("Read " + str(int(self.word_cnt / 1e6)) + "M words")
+                        for w in words:
+                            if len(w) > 0:
+                                word_freqs[w] = word_freqs.get(w, 0) + 1
+                                if word_freqs[w] >= self.min_count:
+                                    self.word_cnt += 1
+                                    if word_freqs[w] == self.min_count:
+                                        # Update stats only for words that has a frequency
+                                        # greater than min_count
+                                        self.id2word[wid] = w
+                                        self.word2id[w] = wid
+                                        self.unique_word_cnt += 1
+                                        wid += 1
+                                    self.word_freqs[self.word2id[w]] = word_freqs[w]
+                                if self.word_cnt % 1e6 == 0 and self.word_cnt >= 1e6:
+                                    print(
+                                        "Read "
+                                        + str(int(self.word_cnt / 1e6))
+                                        + "M words"
+                                    )
             print("Done")
 
         # Create the discard probability table
