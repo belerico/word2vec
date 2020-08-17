@@ -168,10 +168,10 @@ class Vocab:
             )
         logging.info("Done")
 
-        logging.info("Train words:", train_words)
-        logging.info("Word (after min) count:", self.word_cnt)
-        logging.info("Sentence count:", self.sentence_cnt)
-        logging.info("Unique word count:", self.unique_word_cnt)
+        logging.info("Train words: " + str(train_words))
+        logging.info("Word (after min) count: " + str(self.word_cnt))
+        logging.info("Sentence count: " + str(self.sentence_cnt))
+        logging.info("Unique word count: " + str(self.unique_word_cnt))
 
         # Sorted indices by frequency, descending order
         self.sorted = np.argsort(list(self.word_freqs.values()))[::-1]

@@ -1,4 +1,5 @@
 import pickle
+import logging
 
 from scipy.spatial.distance import cosine
 from torch.utils.data import DataLoader
@@ -6,6 +7,10 @@ from torch.utils.data import DataLoader
 from word2vec.data.dataset import Word2vecDataset
 from word2vec.data.vocab import Vocab
 from word2vec.word2vec import Word2Vec
+
+logging.basicConfig(
+    format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO
+)
 
 if __name__ == "__main__":
     # data = Vocab.load_vocab("./vocab/vocab_sample_pad.pkl")
@@ -39,28 +44,31 @@ if __name__ == "__main__":
     #     print(batch[2])
 
     w2v = Word2Vec(
-        train_file="./word2vec/data/dataset/sample.txt",
+        train_file="./word2vec/data/dataset/sample",
         input_vocab_path=None,
         output_vocab_path="./vocab/vocab_sample.pkl",
-        output_vec_path="./vec/vec_sample",
-        output_vec_format="pkl",
-        sg=1,
+        output_vec_path="./vec/vec_sample_100dim_5mc_10ns_5ep_no_check_context_lrDecay_cw",
+        output_vec_format="txt",
+        sentences_path="./sentences/sentences_sample.pkl",
+        sg=0,
         min_count=5,
         batch_size=1,
         emb_dimension=10,
-        epochs=200,
+        epochs=5,
         ns_size=10,
+        lr_type="decay",
+        mikolov_context=True,
     )
     w2v.train()
-    embs = pickle.load(open("./vec/vec_text8.pkl", "rb"))
+    embs = pickle.load(
+        open("./vec/vec_sample_100dim_5mc_10ns_5ep_no_check_context_lrDecay_cw.txt", "rb")
+    )
     print("Cosine between 'cat' and 'dog' ", cosine(embs["dog"], embs["cat"]))
     print(
-        "Cosine between 'cat' and 'anarchy' ",
-        cosine(embs["cat"], embs["anarchy"]),
+        "Cosine between 'cat' and 'anarchy' ", cosine(embs["cat"], embs["anarchy"]),
     )
     print(
-        "Cosine between 'queen' and 'king' ",
-        cosine(embs["queen"], embs["king"]),
+        "Cosine between 'queen' and 'king' ", cosine(embs["queen"], embs["king"]),
     )
     print(
         "Cosine between 'king - man + woman' and 'queen' ",
