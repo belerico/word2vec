@@ -142,6 +142,10 @@ class Word2Vec:
                                 running_loss / (actual_word_cnt),
                             )
                         )
+            else:
+                print("Empty batch: maybe next time")
+                word_cnt += sample_batched[3]
+                actual_word_cnt += sample_batched[3]
 
             print(
                 "Epoch: {}, Elapsed: {:.2f}s, Training Loss: {:.4f}".format(

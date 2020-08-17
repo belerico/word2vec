@@ -36,7 +36,7 @@ class Word2vecDataset(Dataset):
             wids = pickle.load(self.sentences_file)
         subsampled_wids = []
         for wid in wids:
-            if np.random.rand() < self.data.discard_table[wid]:
+            if self.data.discard_table[wid] >= np.random.rand():
                 subsampled_wids.append(wid)
 
         if subsampled_wids:
@@ -96,12 +96,9 @@ class Word2vecDataset(Dataset):
         all_neg = [neg for b in batches for _, _, neg in b[0]]
         all_lengths = sum([b[1] for b in batches])
 
-        if all_context:
-            return (
-                torch.LongTensor(all_target),
-                torch.LongTensor(pad_sequence(all_context, batch_first=True)),
-                torch.LongTensor(all_neg),
-                all_lengths,
-            )
-        else:
-            return []
+        return (
+            torch.LongTensor(all_target),
+            torch.LongTensor(pad_sequence(all_context, batch_first=True)),
+            torch.LongTensor(all_neg),
+            all_lengths,
+        )
