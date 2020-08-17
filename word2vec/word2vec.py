@@ -5,7 +5,6 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-
 from word2vec.model import SkipGram, CBOW
 
 
@@ -72,6 +71,8 @@ class Word2Vec:
         self.batch_size = batch_size
         self.epochs = epochs
         self.initial_lr = initial_lr
+        if not sg and initial_lr == 0.025:
+            self.initial_lr = 0.05  # Default LR for CBOW
 
         self.model = (
             SkipGram(self.emb_size, self.emb_dimension)
@@ -152,3 +153,4 @@ class Word2Vec:
                 self.output_vec_path,
                 vec_format=self.output_vec_format,
             )
+
