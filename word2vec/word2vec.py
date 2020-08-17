@@ -4,7 +4,7 @@ from word2vec.data.vocab import Vocab
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-
+import logging
 from word2vec.model import SkipGram, CBOW
 
 
@@ -33,6 +33,7 @@ class Word2Vec:
         lr_type="decay",
         optim="sgd",
         cbow_mean=True,
+        mikolov_context=True,
         use_gpu=1,
     ):
 
@@ -68,6 +69,7 @@ class Word2Vec:
             ns_size=ns_size,
             shrink_window_size=shrink_window_size,
             sentences_path=sentences_path,
+            mikolov_context=mikolov_context
         )
         self.dataloader = DataLoader(
             dataset,
@@ -156,7 +158,7 @@ class Word2Vec:
                             param_group["lr"] = lr
 
                     if i % 200 == 0:
-                        print(
+                        logging.info(
                             "Progress: {:.4f}%, Elapsed: {:.2f}s, Lr: {}, Loss: {:.4f}".format(
                                 ((i / self.data.sentence_cnt) * 100),
                                 time.time() - t0,
@@ -165,11 +167,11 @@ class Word2Vec:
                             )
                         )
             else:
-                print("Empty batch: maybe next time")
+                logging.info("Empty batch: maybe next time")
                 word_cnt += sample_batched[3]
                 actual_word_cnt += sample_batched[3]
 
-            print(
+            logging.info(
                 "Epoch: {}, Elapsed: {:.2f}s, Training Loss: {:.4f}".format(
                     epoch, time.time() - t0, running_loss / actual_word_cnt
                 )

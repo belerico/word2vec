@@ -1,6 +1,6 @@
 import os
 import pickle
-
+import logging
 import numpy as np
 
 
@@ -46,20 +46,20 @@ class Vocab:
         if not os.path.exists(vocab_path):
             if not os.path.exists(os.path.dirname(vocab_path)):
                 os.makedirs(os.path.dirname(vocab_path))
-            print("Saving vocab to " + vocab_path)
+            logging.info("Saving vocab to " + vocab_path)
             pickle.dump(
                 self, open(os.path.join(vocab_path), "wb"),
             )
-            print("Done")
+            logging.info("Done")
         else:
             raise FileExistsError("'" + vocab_path + "' already exists")
 
     @staticmethod
     def load_vocab(vocab_path):
         if os.path.exists(vocab_path):
-            print("Loading vocab from " + vocab_path)
+            logging.info("Loading vocab from " + vocab_path)
             obj = pickle.load(open(vocab_path, "rb"))
-            print("Done")
+            logging.info("Done")
             return obj
         else:
             raise FileNotFoundError("'" + vocab_path + "' not found")
@@ -71,7 +71,7 @@ class Vocab:
             word_freqs = dict()
             sentences = []
 
-            print("Building vocab")
+            logging.info("Building vocab")
             while not eof:
                 char_read = 0
                 new_line = False
@@ -94,7 +94,10 @@ class Vocab:
                     whitespace = False
                     while not whitespace:
                         char = f.read(1)
-                        if char.isspace() or not char:
+                        if char.isspace():
+                            whitespace = True
+                        elif char == "":
+                            eof = True
                             whitespace = True
                         else:
                             line += char
@@ -110,13 +113,13 @@ class Vocab:
                                 train_words += 1
                                 sentence.append(w)
                                 if train_words % 1e6 == 0 and train_words >= 1e6:
-                                    print(
+                                    logging.info(
                                         "Read " + str(int(train_words / 1e6)) + "M words"
                                     )
                         sentences.append(sentence)
-            print("Done")
+            logging.info("Done")
 
-        print("Updating info")
+        logging.info("Updating info")
         # Keep only those words with a frequency >= min_count
         wid = 1
         for w, c in word_freqs.items():
@@ -127,9 +130,9 @@ class Vocab:
                 wid += 1
         del word_freqs
         self.unique_word_cnt = wid - 1
-        print("Done")
+        logging.info("Done")
 
-        print("Building sentences")
+        logging.info("Building sentences")
         for i, sentence in enumerate(sentences):
             updated_sentence = []
             for w in sentence:
@@ -141,56 +144,56 @@ class Vocab:
                 self.sentence_cnt += 1
             else:
                 del sentences[i]
-        print("Done")
+        logging.info("Done")
 
         if not os.path.exists(sentences_path):
             if not os.path.exists(os.path.dirname(sentences_path)):
                 os.makedirs(os.path.dirname(sentences_path))
-            print("Saving sentences (incrementally) to " + sentences_path)
+            logging.info("Saving sentences (incrementally) to " + sentences_path)
             with open(os.path.join(sentences_path), "wb") as f:
                 for sentence in sentences:
                     pickle.dump(sentence, f, pickle.HIGHEST_PROTOCOL)
             del sentences
-            print("Done")
+            logging.info("Done")
         else:
             raise FileExistsError("'" + sentences_path + "' already exists")
 
         # Create the discard probability table
         self.discard_table = [0]
-        print("Building discard table for subsampling")
+        logging.info("Building discard table for subsampling")
         for _, c in self.word_freqs.items():
             f = c / self.word_cnt
             self.discard_table.append(
                 (np.sqrt(f / self.sample_thr) + 1) * (self.sample_thr / f)
             )
-        print("Done")
+        logging.info("Done")
 
-        print("Train words:", train_words)
-        print("Word (after min) count:", self.word_cnt)
-        print("Sentence count:", self.sentence_cnt)
-        print("Unique word count:", self.unique_word_cnt)
+        logging.info("Train words:", train_words)
+        logging.info("Word (after min) count:", self.word_cnt)
+        logging.info("Sentence count:", self.sentence_cnt)
+        logging.info("Unique word count:", self.unique_word_cnt)
 
         # Sorted indices by frequency, descending order
         self.sorted = np.argsort(list(self.word_freqs.values()))[::-1]
 
     def init_unigram_table(self):
-        print("Building unigram table for negative sampling")
+        logging.info("Building unigram table for negative sampling")
         pow_freqs = self.get_sorted_freqs() ** self.unigram_pow
         all_pow_freqs = np.sum(pow_freqs)
         count = np.round(pow_freqs / all_pow_freqs * self.unigram_table_size)
         for sorted_wid, c in enumerate(count):
             self.unigram_table += [self.sorted[sorted_wid] + 1] * int(c)
         np.random.shuffle(self.unigram_table)
-        print("Done")
+        logging.info("Done")
 
     def get_sorted_freqs(self):
         return np.array(list(self.word_freqs.values()))[self.sorted]
 
     def init_discard_table(self):
-        print("Building discard table for subsampling")
+        logging.info("Building discard table for subsampling")
         x = np.array(list(self.word_freqs.values())) / self.word_cnt
         self.discard_table = (np.sqrt(x / self.sample_thr) + 1) * (self.sample_thr / x)
-        print("Done")
+        logging.info("Done")
 
     def get_negative_samples(self, ns_size=5):
         neg = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]

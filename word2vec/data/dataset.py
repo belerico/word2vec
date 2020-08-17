@@ -15,6 +15,7 @@ class Word2vecDataset(Dataset):
         window_size=5,
         shrink_window_size=True,
         ns_size=5,
+        mikolov_context=False,
     ):
 
         self.data = data
@@ -23,6 +24,7 @@ class Word2vecDataset(Dataset):
         self.shrink_window_size = shrink_window_size
         self.ns_size = ns_size
         self.sentences_file = open(sentences_path, "rb")
+        self.mikolov_context = mikolov_context
 
     def __len__(self):
         return self.data.sentence_cnt
@@ -48,21 +50,37 @@ class Word2vecDataset(Dataset):
 
             examples = []
             if self.sg:
-                examples = [
-                    (target, context, self.data.get_negative_samples(self.ns_size),)
-                    for i, target in enumerate(subsampled_wids)
-                    for context in subsampled_wids[max(i - b, 0) : i + b + 1]
-                    if target != context and context in wids[max(i - b, 0) : i + b + 1]
-                ]
+                if self.mikolov_context:
+                    examples = [
+                        (target, context, self.data.get_negative_samples(self.ns_size),)
+                        for i, target in enumerate(subsampled_wids)
+                        for context in subsampled_wids[max(i - b, 0) : i + b + 1]
+                        if target != context
+                    ]
+                else:
+                    examples = [
+                        (target, context, self.data.get_negative_samples(self.ns_size),)
+                        for i, target in enumerate(subsampled_wids)
+                        for context in subsampled_wids[max(i - b, 0) : i + b + 1]
+                        if target != context
+                        and context in wids[max(i - b, 0) : i + b + 1]
+                    ]
             else:
                 examples = []
                 for i, target in enumerate(subsampled_wids):
-                    context = [
-                        c
-                        for c in subsampled_wids[max(0, i - b) : i]
-                        + subsampled_wids[i + 1 : i + b + 1]
-                        if c in wids[max(0, i - b) : i] + wids[i + 1 : i + b + 1]
-                    ]
+                    if self.mikolov_context:
+                        context = [
+                            c
+                            for c in subsampled_wids[max(0, i - b) : i]
+                            + subsampled_wids[i + 1 : i + b + 1]
+                        ]
+                    else:
+                        context = [
+                            c
+                            for c in subsampled_wids[max(0, i - b) : i]
+                            + subsampled_wids[i + 1 : i + b + 1]
+                            if c in wids[max(0, i - b) : i] + wids[i + 1 : i + b + 1]
+                        ]
                     if len(context) > 0:
                         examples.append(
                             (
