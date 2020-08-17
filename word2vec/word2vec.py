@@ -55,7 +55,7 @@ class Word2Vec:
             window_size=window_size,
             ns_size=ns_size,
             shrink_window_size=shrink_window_size,
-            sentences_path=sentences_path
+            sentences_path=sentences_path,
         )
         self.dataloader = DataLoader(
             dataset,
@@ -118,18 +118,11 @@ class Word2Vec:
                     if word_cnt > 10000:
                         word_cnt = word_cnt - 10000
                         # Cyclical LR - Decay Triangular
-                        # 1. epoch: lr = max(initial_lr * 1, 0.025 * 0.0001)  
-                        # 2. epoch: lr = max(initial_lr * 1/2, 0.025 * 0.0001)
-                        # 3. epoch: lr = max(initial_lr * 2/3, 0.025 * 0.0001)
-                        # 4. epoch: lr = max(initial_lr * 3/4, 0.025 * 0.0001)
-                        # ...
-                        # N. epoch: lr = max(initial_lr * (N-1)/N, 0.025 * 0.0001)
+                        lr = self.initial_lr * (
+                            1.0 - actual_word_cnt / ((epoch + 1) * self.data.word_cnt)
+                        )
                         if lr <= self.initial_lr * 0.0001:
                             lr = self.initial_lr * 0.0001
-                        else:
-                            lr = self.initial_lr * (
-                                1.0 - actual_word_cnt / ((epoch + 1) * self.data.word_cnt)
-                            )
                         for param_group in optimizer.param_groups:
                             param_group["lr"] = lr
 
