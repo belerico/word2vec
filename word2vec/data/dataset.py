@@ -91,14 +91,17 @@ class Word2vecDataset(Dataset):
 
     @staticmethod
     def collate_cw(batches):
-        all_target = [t for b in batches for t, _, _ in b[0]]
-        all_context = [torch.LongTensor(c) for b in batches for _, c, _ in b[0]]
-        all_neg = [neg for b in batches for _, _, neg in b[0]]
         all_lengths = sum([b[1] for b in batches])
+        if batches[0][0]:
+            all_target = [t for b in batches for t, _, _ in b[0]]
+            all_context = [torch.LongTensor(c) for b in batches for _, c, _ in b[0]]
+            all_neg = [neg for b in batches for _, _, neg in b[0]]
 
-        return (
-            torch.LongTensor(all_target),
-            torch.LongTensor(pad_sequence(all_context, batch_first=True)),
-            torch.LongTensor(all_neg),
-            all_lengths,
-        )
+            return (
+                torch.LongTensor(all_target),
+                torch.LongTensor(pad_sequence(all_context, batch_first=True)),
+                torch.LongTensor(all_neg),
+                all_lengths,
+            )
+        else:
+            return ([], [], [], all_lengths)

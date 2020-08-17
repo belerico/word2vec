@@ -75,17 +75,21 @@ class SkipGram(Word2Vec):
 
 
 class CBOW(Word2Vec):
-    def __init__(self, emb_size, emb_dimension):
+    def __init__(self, emb_size, emb_dimension, cbow_mean=True):
         super(CBOW, self).__init__(emb_size, emb_dimension)
+        self.cbow_mean = cbow_mean
 
     def forward(self, pos_u, pos_v, neg_v):
         u_embs = self.u_embs(pos_u)
         v_embs = self.v_embs(pos_v)
 
         # Mean of context vector without considering padding idx (0)
-        mean_v_embs = torch.true_divide(
-            torch.sum(v_embs, dim=1), (pos_v != 0).sum(dim=1).unsqueeze(dim=1)
-        )
+        if self.cbow_mean:
+            mean_v_embs = torch.true_divide(
+                torch.sum(v_embs, dim=1), (pos_v != 0).sum(dim=1).unsqueeze(dim=1)
+            )
+        else:
+            mean_v_embs = torch.sum(v_embs, dim=1)
 
         score = torch.mul(u_embs, mean_v_embs)
         score = torch.sum(score, dim=1)

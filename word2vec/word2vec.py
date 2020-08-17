@@ -31,6 +31,7 @@ class Word2Vec:
         unigram_table_size=1e8,
         epochs=10,
         initial_lr=0.025,
+        cbow_mean=True,
         use_gpu=1,
     ):
 
@@ -75,7 +76,7 @@ class Word2Vec:
         self.model = (
             SkipGram(self.emb_size, self.emb_dimension)
             if sg
-            else CBOW(self.emb_size, self.emb_dimension)
+            else CBOW(self.emb_size, self.emb_dimension, cbow_mean)
         )
 
         self.use_gpu = torch.cuda.is_available() and use_gpu
