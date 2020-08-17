@@ -40,7 +40,7 @@ class Word2Vec:
             raise NotImplementedError(
                 "'lr_type' must be 'triangular', 'triangular_decay' or 'decay'"
             )
-        self.lr_type = str.lower(self.lr_type)
+        self.lr_type = str.lower(lr_type)
 
         if str.lower(optim) not in ["sgd", "adam"]:
             raise NotImplementedError("'optim' must be 'sgd' or 'adam'")
