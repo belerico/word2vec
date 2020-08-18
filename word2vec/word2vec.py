@@ -17,6 +17,7 @@ class Word2Vec:
         output_vec_path=None,
         output_vec_format=None,
         sentences_path=None,
+        overwrite=True,
         sg=1,
         emb_dimension=100,
         batch_size=1,
@@ -69,7 +70,7 @@ class Word2Vec:
             ns_size=ns_size,
             shrink_window_size=shrink_window_size,
             sentences_path=sentences_path,
-            mikolov_context=mikolov_context
+            mikolov_context=mikolov_context,
         )
         self.dataloader = DataLoader(
             dataset,
@@ -85,6 +86,7 @@ class Word2Vec:
         self.batch_size = batch_size
         self.epochs = epochs
         self.initial_lr = initial_lr
+        self.overwrite = overwrite
         if not sg and initial_lr == 0.025:
             self.initial_lr = 0.05  # Default LR for CBOW
 
@@ -181,5 +183,6 @@ class Word2Vec:
                 self.data.id2word,
                 self.output_vec_path,
                 vec_format=self.output_vec_format,
+                overwrite=self.overwrite,
             )
 

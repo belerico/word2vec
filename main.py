@@ -44,33 +44,22 @@ if __name__ == "__main__":
     #     print(batch[2])
 
     w2v = Word2Vec(
-        train_file="./word2vec/data/dataset/sample",
-        input_vocab_path=None,
-        output_vocab_path="./vocab/vocab_sample.pkl",
-        output_vec_path="./vec/vec_sample_100dim_5mc_10ns_5ep_no_check_context_lrDecay_cw",
-        output_vec_format="txt",
+        train_file="./word2vec/data/dataset/sample.txt",
+        input_vocab_path="./vocab/vocab_sample.pkl",
+        output_vocab_path=None,
+        output_vec_path="./vec/vec_sample_sg",
+        output_vec_format="pkl",
         sentences_path="./sentences/sentences_sample.pkl",
-        sg=0,
+        sg=1,
         min_count=5,
         batch_size=1,
         emb_dimension=10,
-        epochs=5,
+        epochs=50,
         ns_size=10,
         lr_type="decay",
         mikolov_context=True,
     )
     w2v.train()
-    embs = pickle.load(
-        open("./vec/vec_sample_100dim_5mc_10ns_5ep_no_check_context_lrDecay_cw.txt", "rb")
-    )
-    print("Cosine between 'cat' and 'dog' ", cosine(embs["dog"], embs["cat"]))
-    print(
-        "Cosine between 'cat' and 'anarchy' ", cosine(embs["cat"], embs["anarchy"]),
-    )
-    print(
-        "Cosine between 'queen' and 'king' ", cosine(embs["queen"], embs["king"]),
-    )
-    print(
-        "Cosine between 'king - man + woman' and 'queen' ",
-        cosine(embs["queen"], embs["king"] - embs["man"] + embs["woman"]),
-    )
+    embs = pickle.load(open("./vec/vec_sample_sg.pkl", "rb"))
+    print("Cosine between 'river' and 'flows' ", cosine(embs["river"], embs["flows"]))
+    print("Cosine between 'river' and 'far' ", cosine(embs["river"], embs["far"]))

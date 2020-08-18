@@ -25,14 +25,19 @@ class Word2Vec(nn.Module):
     def forward(self, pos_u, pos_v, neg_v):
         raise NotImplementedError
 
-    def save_embeddings(self, id2word, output_vec_path: str, vec_format="txt"):
+    def get_word_vectors(self):
+        raise NotImplementedError
+
+    def save_embeddings(
+        self, id2word, output_vec_path: str, vec_format="txt", overwrite=True
+    ):
         assert vec_format in ["txt", "pkl"]
         if not os.path.exists(os.path.dirname(output_vec_path)):
             os.makedirs(os.path.dirname(output_vec_path))
-        embs = self.u_embs.weight.cpu().data.numpy()
+        embs = self.get_word_vectors()
         output_vec_path = os.path.splitext(output_vec_path)[0]
         if vec_format is None or vec_format == "txt":
-            if not os.path.exists(output_vec_path + ".txt"):
+            if not os.path.exists(output_vec_path + ".txt") or overwrite:
                 print("Save embeddings to " + output_vec_path + ".txt")
                 with open(output_vec_path + ".txt", "w") as f:
                     f.write("%d %d\n" % (len(id2word), self.emb_dimension))
@@ -42,7 +47,7 @@ class Word2Vec(nn.Module):
             else:
                 raise FileExistsError("'" + output_vec_path + ".txt' already exists")
         else:
-            if not os.path.exists(output_vec_path + ".pkl"):
+            if not os.path.exists(output_vec_path + ".pkl") or overwrite:
                 print("Save embeddings to " + output_vec_path + ".pkl")
                 embs_tmp = {w: embs[wid] for wid, w in id2word.items()}
                 pickle.dump(embs_tmp, open(output_vec_path + ".pkl", "wb"))
@@ -73,6 +78,9 @@ class SkipGram(Word2Vec):
 
         return -1 * (torch.sum(score) + torch.sum(neg_score))
 
+    def get_word_vectors(self):
+        return self.u_embs.weight.cpu().data.numpy()
+
 
 class CBOW(Word2Vec):
     def __init__(self, emb_size, emb_dimension, cbow_mean=True):
@@ -86,7 +94,7 @@ class CBOW(Word2Vec):
         # Mean of context vector without considering padding idx (0)
         if self.cbow_mean:
             mean_v_embs = torch.true_divide(
-                torch.sum(v_embs, dim=1), (pos_v != 0).sum(dim=1).unsqueeze(dim=1)
+                torch.sum(v_embs, dim=1), (pos_v != 0).sum(dim=1).unsqueeze(dim=1),
             )
         else:
             mean_v_embs = torch.sum(v_embs, dim=1)
@@ -104,3 +112,6 @@ class CBOW(Word2Vec):
         neg_score = F.logsigmoid(-1 * neg_score)
 
         return -1 * (torch.sum(score) + torch.sum(neg_score))
+
+    def get_word_vectors(self):
+        return self.v_embs.weight.cpu().data.numpy()
