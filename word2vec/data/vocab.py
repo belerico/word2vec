@@ -1,6 +1,7 @@
+import logging
 import os
 import pickle
-import logging
+
 import numpy as np
 
 
@@ -14,6 +15,7 @@ class Vocab:
         sample_thr=0.001,
         unigram_table_size=1e8,
         max_sentence_length=1000,
+        overwrite=True,
     ):
         if not train_file:
             raise FileNotFoundError("Train file path not specified")
@@ -34,7 +36,7 @@ class Vocab:
         self.neg_idx = 0
         self.unigram_table = []
         self.sorted = []
-        self.init_vocab(sentences_path)
+        self.init_vocab(sentences_path, overwrite=overwrite)
         self.init_unigram_table()
 
         # Add padding index
@@ -42,8 +44,8 @@ class Vocab:
         self.word2id["PAD"] = 0
         self.word_freqs[0] = 0
 
-    def save_vocab(self, vocab_path):
-        if not os.path.exists(vocab_path):
+    def save_vocab(self, vocab_path, overwrite=True):
+        if not os.path.exists(vocab_path) or overwrite:
             if not os.path.exists(os.path.dirname(vocab_path)):
                 os.makedirs(os.path.dirname(vocab_path))
             logging.info("Saving vocab to " + vocab_path)
@@ -64,7 +66,7 @@ class Vocab:
         else:
             raise FileNotFoundError("'" + vocab_path + "' not found")
 
-    def init_vocab(self, sentences_path: str):
+    def init_vocab(self, sentences_path: str, overwrite=False):
         with open(self.train_file, "r") as f:
             eof = False
             train_words = 0
@@ -146,13 +148,13 @@ class Vocab:
                 del sentences[i]
         logging.info("Done")
 
-        if not os.path.exists(sentences_path):
+        if not os.path.exists(sentences_path) or overwrite:
             if not os.path.exists(os.path.dirname(sentences_path)):
                 os.makedirs(os.path.dirname(sentences_path))
             logging.info("Saving sentences (incrementally) to " + sentences_path)
-            with open(os.path.join(sentences_path), "wb") as f:
+            with open(os.path.join(sentences_path), "wb", 1024 * 1024) as f:
                 for sentence in sentences:
-                    pickle.dump(sentence, f, pickle.HIGHEST_PROTOCOL)
+                    f.write(bytes(sentence) + b"\n")
             del sentences
             logging.info("Done")
         else:

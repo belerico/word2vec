@@ -1,8 +1,11 @@
-from torch.nn.utils.rnn import pad_sequence
+import mmap
+import pickle
+
 import numpy as np
 import torch
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
-import pickle
+
 from .vocab import Vocab
 
 
@@ -23,7 +26,8 @@ class Word2vecDataset(Dataset):
         self.window_size = window_size
         self.shrink_window_size = shrink_window_size
         self.ns_size = ns_size
-        self.sentences_file = open(sentences_path, "rb")
+        f = open(sentences_path, "rb")
+        self.sentences_file = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
         self.mikolov_context = mikolov_context
 
     def __len__(self):
@@ -31,9 +35,8 @@ class Word2vecDataset(Dataset):
 
     def __getitem__(self, idx):
         # Load sentences incrementally
-        try:
-            wids = pickle.load(self.sentences_file)
-        except EOFError:
+        wids = list(self.sentences_file.readline())
+        if not wids:
             self.sentences_file.seek(0, 0)
             return [], 0
 

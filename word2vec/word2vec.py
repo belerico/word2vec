@@ -1,11 +1,13 @@
+import logging
 import time
-from word2vec.data.dataset import Word2vecDataset
-from word2vec.data.vocab import Vocab
+
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-import logging
-from word2vec.model import SkipGram, CBOW
+
+from word2vec.data.dataset import Word2vecDataset
+from word2vec.data.vocab import Vocab
+from word2vec.model import CBOW, SkipGram
 
 
 class Word2Vec:
@@ -36,6 +38,7 @@ class Word2Vec:
         cbow_mean=True,
         mikolov_context=True,
         use_gpu=1,
+        num_workers=1
     ):
 
         if str.lower(lr_type) not in ["triangular", "decay", "traingular_decay"]:
@@ -77,6 +80,8 @@ class Word2Vec:
             batch_size=batch_size,
             shuffle=False,
             collate_fn=dataset.collate_sg if sg else dataset.collate_cw,
+            pin_memory=True,
+            num_workers=num_workers,
         )
 
         self.output_vec_path = output_vec_path
@@ -100,6 +105,7 @@ class Word2Vec:
         self.device = torch.device("cuda" if self.use_gpu else "cpu")
         if self.use_gpu:
             self.model.cuda()
+        # self.model = torch.nn.DataParallel(self.model)
 
     def train(self):
         if self.optim == "sgd":
@@ -185,4 +191,3 @@ class Word2Vec:
                 vec_format=self.output_vec_format,
                 overwrite=self.overwrite,
             )
-
