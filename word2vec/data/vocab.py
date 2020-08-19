@@ -134,13 +134,13 @@ class Vocab:
 
         logging.info("Building sentences")
         for i, sentence in enumerate(sentences):
-            updated_sentence = []
-            for w in sentence:
+            for j, w in enumerate(sentence):
                 if w in self.word2id:
-                    updated_sentence.append(self.word2id[w])
+                    sentence[j] = self.word2id[w]
                     self.word_cnt += 1
-            if updated_sentence:
-                sentences[i] = updated_sentence
+                else:
+                    del sentence[j]
+            if sentence:
                 self.sentence_cnt += 1
             else:
                 del sentences[i]

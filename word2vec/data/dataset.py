@@ -35,14 +35,14 @@ class Word2vecDataset(Dataset):
             wids = pickle.load(self.sentences_file)
         except EOFError:
             self.sentences_file.seek(0, 0)
-            wids = pickle.load(self.sentences_file)
+            return [], 0
+
         subsampled_wids = []
         for wid in wids:
             if self.data.discard_table[wid] >= np.random.rand():
                 subsampled_wids.append(wid)
 
         if subsampled_wids:
-
             # Shrink window by b
             b = self.window_size
             if self.shrink_window_size:
@@ -54,14 +54,15 @@ class Word2vecDataset(Dataset):
                     examples = [
                         (target, context, self.data.get_negative_samples(self.ns_size),)
                         for i, target in enumerate(subsampled_wids)
-                        for context in subsampled_wids[max(i - b, 0) : i + b + 1]
-                        if target != context
+                        for context in subsampled_wids[max(0, i - b) : i]
+                        + subsampled_wids[i + 1 : i + b + 1]
                     ]
                 else:
                     examples = [
                         (target, context, self.data.get_negative_samples(self.ns_size),)
                         for i, target in enumerate(subsampled_wids)
-                        for context in subsampled_wids[max(i - b, 0) : i + b + 1]
+                        for context in subsampled_wids[max(0, i - b) : i]
+                        + subsampled_wids[i + 1 : i + b + 1]
                         if target != context
                         and context in wids[max(i - b, 0) : i + b + 1]
                     ]
