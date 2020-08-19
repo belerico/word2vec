@@ -35,8 +35,9 @@ class Word2vecDataset(Dataset):
 
     def __getitem__(self, idx):
         # Load sentences incrementally
-        wids = pickle.load(self.sentences_file)
-        if not wids:
+        try:
+            wids = pickle.load(self.sentences_file)
+        except EOFError:
             self.sentences_file.seek(0, 0)
             return [], 0
 
