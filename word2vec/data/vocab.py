@@ -1,6 +1,6 @@
 import logging
 import os
-import pickle
+import _pickle as pickle
 
 import numpy as np
 
@@ -50,7 +50,7 @@ class Vocab:
                 os.makedirs(os.path.dirname(vocab_path))
             logging.info("Saving vocab to " + vocab_path)
             pickle.dump(
-                self, open(os.path.join(vocab_path), "wb"),
+                self, open(os.path.join(vocab_path), "wb"), protocol=-1
             )
             logging.info("Done")
         else:
@@ -154,7 +154,7 @@ class Vocab:
             logging.info("Saving sentences (incrementally) to " + sentences_path)
             with open(os.path.join(sentences_path), "wb", 1024 * 1024) as f:
                 for sentence in sentences:
-                    pickle.dump(sentence, f)
+                    pickle.dump(sentence, f, protocol=-1)
             del sentences
             logging.info("Done")
         else:
