@@ -154,7 +154,7 @@ class Vocab:
             logging.info("Saving sentences (incrementally) to " + sentences_path)
             with open(os.path.join(sentences_path), "wb", 1024 * 1024) as f:
                 for sentence in sentences:
-                    f.write(bytes(sentence) + b"\n")
+                    pickle.dump(sentence, f)
             del sentences
             logging.info("Done")
         else:
