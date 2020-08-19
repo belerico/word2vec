@@ -1,6 +1,5 @@
 import os
-import _pickle as pickle
-
+import pickle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -50,7 +49,7 @@ class Word2Vec(nn.Module):
             if not os.path.exists(output_vec_path + ".pkl") or overwrite:
                 print("Save embeddings to " + output_vec_path + ".pkl")
                 embs_tmp = {w: embs[wid] for wid, w in id2word.items()}
-                pickle.dump(embs_tmp, open(output_vec_path + ".pkl", "wb"), protocol=-1)
+                pickle.dump(embs_tmp, open(output_vec_path + ".pkl", "wb"), )
             else:
                 raise FileExistsError("'" + output_vec_path + ".pkl' already exists")
         print("Done")

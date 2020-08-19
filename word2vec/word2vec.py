@@ -38,7 +38,7 @@ class Word2Vec:
         cbow_mean=True,
         mikolov_context=True,
         use_gpu=1,
-        num_workers=1
+        num_workers=0
     ):
 
         if str.lower(lr_type) not in ["triangular", "decay", "traingular_decay"]:

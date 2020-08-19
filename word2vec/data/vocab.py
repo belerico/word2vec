@@ -1,6 +1,7 @@
-import _pickle as pickle
 import logging
+import marshal
 import os
+import pickle
 
 import numpy as np
 
@@ -151,7 +152,7 @@ class Vocab:
             with open(os.path.join(sentences_path), "wb", 1024 * 1024) as f:
                 for sentence in updated_sentences:
                     if sentence:
-                        pickle.dump(sentence, f, protocol=-1)
+                        marshal.dump(sentence, f, )
             del updated_sentences
             logging.info("Done")
         else:
