@@ -1,6 +1,6 @@
+import _pickle as pickle
 import logging
 import os
-import _pickle as pickle
 
 import numpy as np
 
@@ -49,9 +49,7 @@ class Vocab:
             if not os.path.exists(os.path.dirname(vocab_path)):
                 os.makedirs(os.path.dirname(vocab_path))
             logging.info("Saving vocab to " + vocab_path)
-            pickle.dump(
-                self, open(os.path.join(vocab_path), "wb"), protocol=-1
-            )
+            pickle.dump(self, open(os.path.join(vocab_path), "wb"), protocol=-1)
             logging.info("Done")
         else:
             raise FileExistsError("'" + vocab_path + "' already exists")
@@ -135,17 +133,15 @@ class Vocab:
         logging.info("Done")
 
         logging.info("Building sentences")
+        updated_sentences = []
         for i, sentence in enumerate(sentences):
-            for j, w in enumerate(sentence):
-                if w in self.word2id:
-                    sentence[j] = self.word2id[w]
-                    self.word_cnt += 1
-                else:
-                    del sentence[j]
-            if sentence:
+            updated_sentences.append(
+                [self.word2id[w] for w in sentence if w in self.word2id]
+            )
+            self.word_cnt += len(updated_sentences[-1])
+            if updated_sentences[-1]:
                 self.sentence_cnt += 1
-            else:
-                del sentences[i]
+        del sentences
         logging.info("Done")
 
         if not os.path.exists(sentences_path) or overwrite:
@@ -153,9 +149,10 @@ class Vocab:
                 os.makedirs(os.path.dirname(sentences_path))
             logging.info("Saving sentences (incrementally) to " + sentences_path)
             with open(os.path.join(sentences_path), "wb", 1024 * 1024) as f:
-                for sentence in sentences:
-                    pickle.dump(sentence, f, protocol=-1)
-            del sentences
+                for sentence in updated_sentences:
+                    if sentence:
+                        pickle.dump(sentence, f, protocol=-1)
+            del updated_sentences
             logging.info("Done")
         else:
             raise FileExistsError("'" + sentences_path + "' already exists")
