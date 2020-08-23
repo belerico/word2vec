@@ -1,9 +1,109 @@
 import logging
-import marshal
 import os
 import pickle
+import threading
+from collections import Counter
+from queue import Queue
 
 import numpy as np
+
+
+class Producer(threading.Thread):
+    def __init__(
+        self,
+        filename: str,
+        q: Queue,
+        sentences: list,
+        word_freqs: Counter,
+        chunk_size=32768,
+        max_sentence_length=1000,
+    ):
+        super(Producer, self).__init__()
+        self.file = open(filename, "r")
+        self.q = q
+        self.sentences = sentences
+        self.word_freqs = word_freqs
+        assert chunk_size > 0
+        self.chunk_size = chunk_size
+        assert isinstance(max_sentence_length, int) and max_sentence_length > 0
+        self.max_sentence_length = max_sentence_length
+
+    def run(self):
+        stop = False
+        while not stop:
+            chunk = self.file.read(self.chunk_size)
+            if not chunk:
+                self.q.put(-1)
+                stop = True
+            else:
+                for sentence in chunk.split("\n"):
+                    if len(sentence) <= self.max_sentence_length:
+                        self.sentences.append(sentence)
+                        self.word_freqs.update(sentence.split())
+                    else:
+                        self.q.put(sentence)
+
+
+class Consumer(threading.Thread):
+    def __init__(
+        self, q: Queue, sentences: str, word_freqs: Counter, max_sentence_length=1000
+    ):
+        super(Consumer, self).__init__()
+        self.buffer = []
+        self.q = q
+        self.sentences = sentences
+        self.word_freqs = word_freqs
+        self.max_sentence_length = max_sentence_length
+
+    def run(self):
+        stop = False
+        while not stop:
+            sentence = self.q.get()
+            if sentence == -1:
+                stop = True
+            else:
+                self.buffer.append(sentence)
+                while len(self.buffer) > 1 or len(self.buffer[0]) > 1000:
+                    i = 0
+                    sent = self.buffer.pop(0)
+                    while (
+                        i + self.max_sentence_length < len(sent)
+                        and not sent[self.max_sentence_length + i].isspace()
+                    ):
+                        i += 1
+                    if i + self.max_sentence_length < len(sent):
+                        new_sentence = sent[: self.max_sentence_length + i].split()
+                        self.sentences.append(new_sentence)
+                        self.word_freqs.update(new_sentence)
+                        self.buffer.insert(0, sent[self.max_sentence_length + i :])
+                    elif self.buffer:
+                        self.buffer.insert(0, sent + self.buffer.pop(0))
+                    else:
+                        self.buffer.insert(0, sent)
+                        break
+                self.q.task_done()
+
+        while len(self.buffer) > 1 or len(self.buffer[0]) > 1000:
+            i = 0
+            sent = self.buffer.pop(0)
+            while (
+                i + self.max_sentence_length < len(sent)
+                and not sent[self.max_sentence_length + i].isspace()
+            ):
+                i += 1
+            if i + self.max_sentence_length < len(sent):
+                new_sentence = sent[: self.max_sentence_length + i].split()
+                self.sentences.append(new_sentence)
+                self.word_freqs.update(new_sentence)
+                self.buffer.insert(0, sent[self.max_sentence_length + i :])
+            elif self.buffer:
+                self.buffer.insert(0, sent + self.buffer.pop(0))
+            else:
+                self.buffer.insert(0, sent)
+                break
+
+        self.sentences.append(self.buffer[0] if self.buffer else "")
+        self.word_freqs.update(self.buffer[0].split() if self.buffer else "")
 
 
 class Vocab:
@@ -17,6 +117,8 @@ class Vocab:
         unigram_table_size=1e8,
         max_sentence_length=1000,
         overwrite=True,
+        chunk_size=32768,
+        queue_buf_size=100000,
     ):
         if not train_file:
             raise FileNotFoundError("Train file path not specified")
@@ -27,6 +129,8 @@ class Vocab:
         self.sample_thr = sample_thr
         self.unigram_table_size = unigram_table_size
         self.max_sentence_length = max_sentence_length
+        self.chunk_size = chunk_size
+        self.queue_buf_size = queue_buf_size
 
         self.word_freqs = dict()
         self.word2id = dict()
@@ -66,59 +170,20 @@ class Vocab:
             raise FileNotFoundError("'" + vocab_path + "' not found")
 
     def init_vocab(self, sentences_path: str, overwrite=False):
-        with open(self.train_file, "r") as f:
-            eof = False
-            train_words = 0
-            word_freqs = dict()
-            sentences = []
+        logging.info("Building vocab")
+        # Start Producer-Consumer thread to read "efficiently" (I hope) the train file
+        q = Queue(self.queue_buf_size)
+        word_freqs = Counter()
+        sentences = []
 
-            logging.info("Building vocab")
-            while not eof:
-                char_read = 0
-                new_line = False
-                line = ""
+        producer = Producer(self.train_file, q, sentences, word_freqs)
+        consumer = Consumer(q, sentences, word_freqs)
 
-                # Read file in chunk or until a new line
-                while not eof and char_read < self.max_sentence_length and not new_line:
-                    char = f.read(1)
-                    if char == "\n":
-                        new_line = True
-                    elif char == "":
-                        eof = True
-                    else:
-                        line += char
-                        char_read += 1
-
-                if not new_line:
-                    # If a word is truncated after "max_sentence_length" chars,
-                    # read until any whitespace is found
-                    whitespace = False
-                    while not whitespace:
-                        char = f.read(1)
-                        if char.isspace():
-                            whitespace = True
-                        elif char == "":
-                            eof = True
-                            whitespace = True
-                        else:
-                            line += char
-
-                if line != "\n" and line != "":
-                    words = line.strip().split()
-                    # Collect infos only if in a sentence there're at least 2 words
-                    if len(words) > 1:
-                        sentence = []
-                        for w in words:
-                            if len(w) > 0:
-                                word_freqs[w] = word_freqs.get(w, 0) + 1
-                                train_words += 1
-                                sentence.append(w)
-                                if train_words % 1e6 == 0 and train_words >= 1e6:
-                                    logging.info(
-                                        "Read " + str(int(train_words / 1e6)) + "M words"
-                                    )
-                        sentences.append(sentence)
-            logging.info("Done")
+        producer.start()
+        consumer.start()
+        producer.join()
+        consumer.join()
+        logging.info("Done")
 
         logging.info("Updating info")
         # Keep only those words with a frequency >= min_count
@@ -133,27 +198,20 @@ class Vocab:
         self.unique_word_cnt = wid - 1
         logging.info("Done")
 
-        logging.info("Building sentences")
-        updated_sentences = []
-        for i, sentence in enumerate(sentences):
-            updated_sentences.append(
-                [self.word2id[w] for w in sentence if w in self.word2id]
-            )
-            self.word_cnt += len(updated_sentences[-1])
-            if updated_sentences[-1]:
-                self.sentence_cnt += 1
-        del sentences
-        logging.info("Done")
-
         if not os.path.exists(sentences_path) or overwrite:
             if not os.path.exists(os.path.dirname(sentences_path)):
                 os.makedirs(os.path.dirname(sentences_path))
-            logging.info("Saving sentences (incrementally) to " + sentences_path)
+            logging.info(
+                "Building and saving sentences (incrementally) to " + sentences_path
+            )
             with open(os.path.join(sentences_path), "wb", 1024 * 1024) as f:
-                for sentence in updated_sentences:
-                    if sentence:
-                        marshal.dump(sentence, f, )
-            del updated_sentences
+                for i, sentence in enumerate(sentences):
+                    s = [self.word2id[w] for w in sentence if w in self.word2id]
+                    if s:
+                        self.word_cnt += len(s)
+                        self.sentence_cnt += 1
+                        pickle.dump(s, f)
+            del sentences
             logging.info("Done")
         else:
             raise FileExistsError("'" + sentences_path + "' already exists")
@@ -168,7 +226,7 @@ class Vocab:
             )
         logging.info("Done")
 
-        logging.info("Train words: " + str(train_words))
+        # logging.info("Train words: " + str(train_words))
         logging.info("Word (after min) count: " + str(self.word_cnt))
         logging.info("Sentence count: " + str(self.sentence_cnt))
         logging.info("Unique word count: " + str(self.unique_word_cnt))

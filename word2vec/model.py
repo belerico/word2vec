@@ -1,9 +1,11 @@
 import os
 import pickle
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
+from opt_einsum import contract
 
 
 class Word2Vec(nn.Module):
@@ -49,7 +51,9 @@ class Word2Vec(nn.Module):
             if not os.path.exists(output_vec_path + ".pkl") or overwrite:
                 print("Save embeddings to " + output_vec_path + ".pkl")
                 embs_tmp = {w: embs[wid] for wid, w in id2word.items()}
-                pickle.dump(embs_tmp, open(output_vec_path + ".pkl", "wb"), )
+                pickle.dump(
+                    embs_tmp, open(output_vec_path + ".pkl", "wb"),
+                )
             else:
                 raise FileExistsError("'" + output_vec_path + ".pkl' already exists")
         print("Done")
@@ -63,16 +67,20 @@ class SkipGram(Word2Vec):
         u_embs = self.u_embs(pos_u)
         v_embs = self.v_embs(pos_v)
 
-        score = torch.mul(u_embs, v_embs)
-        score = torch.sum(score, dim=1)
+        # score = torch.mul(u_embs, v_embs)
+        # score = torch.sum(score, dim=1)
         # score = torch.einsum("ij,ij->i", [u_embs, v_embs])  # Batch dot product
+        score = contract("ij,ij->i", u_embs, v_embs, backend="pytorch")
         score = F.logsigmoid(score)
 
         neg_v_embs = self.v_embs(neg_v)
-        neg_score = torch.bmm(neg_v_embs, u_embs.unsqueeze(2))
+        # neg_score = torch.bmm(neg_v_embs, u_embs.unsqueeze(2))
         # neg_score = torch.einsum(
         #     "ijk,ikl->ijl", [neg_v_embs, u_embs.unsqueeze(2)]
         # )  # Batch matrix multiplication
+        neg_score = contract(
+            "ijk,ikl->ijl", neg_v_embs, u_embs.unsqueeze(2), backend="torch"
+        )  # Batch matrix multiplication
         neg_score = F.logsigmoid(-1 * neg_score)
 
         return -1 * (torch.sum(score) + torch.sum(neg_score))
@@ -98,16 +106,20 @@ class CBOW(Word2Vec):
         else:
             mean_v_embs = torch.sum(v_embs, dim=1)
 
-        score = torch.mul(u_embs, mean_v_embs)
-        score = torch.sum(score, dim=1)
-        # score = torch.einsum("ij,ij->i", [u_embs, torch.mean(v_embs, 1)])  # Batch dot product
+        # score = torch.mul(u_embs, mean_v_embs)
+        # score = torch.sum(score, dim=1)
+        # score = torch.einsum("ij,ij->i", [u_embs, mean_v_embs])  # Batch dot product
+        score = contract("ij,ij->i", u_embs, mean_v_embs, backend="torch")
         score = F.logsigmoid(score)
 
         neg_v_embs = self.v_embs(neg_v)
-        neg_score = torch.bmm(neg_v_embs, u_embs.unsqueeze(2))
+        # neg_score = torch.bmm(neg_v_embs, u_embs.unsqueeze(2))
         # neg_score = torch.einsum(
         #     "ijk,ikl->ijl", [neg_v_embs, u_embs.unsqueeze(2)]
         # )  # Batch matrix multiplication
+        neg_score = contract(
+            "ijk,ikl->ijl", neg_v_embs, u_embs.unsqueeze(2), backend="torch"
+        )  # Batch matrix multiplication
         neg_score = F.logsigmoid(-1 * neg_score)
 
         return -1 * (torch.sum(score) + torch.sum(neg_score))

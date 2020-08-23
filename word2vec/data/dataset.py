@@ -1,5 +1,5 @@
-import mmap
-import marshal
+import pickle
+
 import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -34,7 +34,7 @@ class Word2vecDataset(Dataset):
     def __getitem__(self, idx):
         # Load sentences incrementally
         try:
-            wids = marshal.load(self.sentences_file)
+            wids = pickle.load(self.sentences_file)
         except EOFError:
             self.sentences_file.seek(0, 0)
             return [], 0
