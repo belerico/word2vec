@@ -63,6 +63,7 @@ class Consumer(threading.Thread):
                 stop = True
             else:
                 self.buffer.append(sentence)
+                self.q.task_done()
                 while len(self.buffer) > 1 or len(self.buffer[0]) > 1000:
                     i = 0
                     sent = self.buffer.pop(0)
@@ -81,7 +82,6 @@ class Consumer(threading.Thread):
                     else:
                         self.buffer.insert(0, sent)
                         break
-                self.q.task_done()
 
         while len(self.buffer) > 1 or len(self.buffer[0]) > 1000:
             i = 0
@@ -204,13 +204,14 @@ class Vocab:
             logging.info(
                 "Building and saving sentences (incrementally) to " + sentences_path
             )
-            with open(os.path.join(sentences_path), "wb", 1024 * 1024) as f:
+            with open(os.path.join(sentences_path), "wb") as f:
+                s = []
                 for i, sentence in enumerate(sentences):
                     s = [self.word2id[w] for w in sentence if w in self.word2id]
                     if s:
                         self.word_cnt += len(s)
                         self.sentence_cnt += 1
-                        pickle.dump(s, f)
+                        pickle.dump(s, f, protocol=pickle.HIGHEST_PROTOCOL)
             del sentences
             logging.info("Done")
         else:

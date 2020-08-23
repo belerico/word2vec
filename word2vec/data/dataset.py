@@ -1,3 +1,4 @@
+import mmap
 import pickle
 
 import numpy as np
@@ -25,7 +26,8 @@ class Word2vecDataset(Dataset):
         self.window_size = window_size
         self.shrink_window_size = shrink_window_size
         self.ns_size = ns_size
-        self.sentences_file = open(sentences_path, "rb")
+        self.sentences_path = open(sentences_path, "rb")
+        self.mm = mmap.mmap(self.sentences_path.fileno(), 0, access=mmap.ACCESS_READ)
         self.mikolov_context = mikolov_context
 
     def __len__(self):
@@ -34,7 +36,7 @@ class Word2vecDataset(Dataset):
     def __getitem__(self, idx):
         # Load sentences incrementally
         try:
-            wids = pickle.load(self.sentences_file)
+            wids = pickle.load(self.mm)
         except EOFError:
             self.sentences_file.seek(0, 0)
             return [], 0
