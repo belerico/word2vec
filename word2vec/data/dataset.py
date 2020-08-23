@@ -38,7 +38,7 @@ class Word2vecDataset(Dataset):
         try:
             wids = pickle.load(self.mm)
         except EOFError:
-            self.sentences_file.seek(0, 0)
+            self.sentences_path.seek(0, 0)
             return [], 0
 
         subsampled_wids = []
