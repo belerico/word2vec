@@ -70,7 +70,7 @@ class SkipGram(Word2Vec):
         # score = torch.mul(u_embs, v_embs)
         # score = torch.sum(score, dim=1)
         # score = torch.einsum("ij,ij->i", [u_embs, v_embs])  # Batch dot product
-        score = contract("ij,ij->i", u_embs, v_embs, backend="pytorch")
+        score = contract("ij,ij->i", u_embs, v_embs, backend="torch")
         score = F.logsigmoid(score)
 
         neg_v_embs = self.v_embs(neg_v)
