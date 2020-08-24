@@ -96,7 +96,7 @@ class Consumer(threading.Thread):
                         i += 1
                     if i + self.max_sentence_length < len(sent):
                         new_sentence = (
-                            sent[: self.max_sentence_length + i].strip().split()
+                            sent[: self.max_sentence_length + i].split()
                         )
                         self.sentences.append(new_sentence)
                         self.word_freqs.update(new_sentence)
@@ -122,7 +122,7 @@ class Consumer(threading.Thread):
                 i += 1
             if i + self.max_sentence_length < len(sent):
                 new_sentence = (
-                    sent[: self.max_sentence_length + i].strip().split()
+                    sent[: self.max_sentence_length + i].split()
                 )
                 self.sentences.append(new_sentence)
                 self.word_freqs.update(new_sentence)
@@ -134,7 +134,7 @@ class Consumer(threading.Thread):
                 break
 
         if self.buffer:
-            last_sentence = self.buffer[0].strip().split()
+            last_sentence = self.buffer[0].split()
             self.sentences.append(last_sentence)
             self.word_freqs.update(last_sentence)
 
@@ -260,7 +260,7 @@ class Vocab:
                         sentences[i] = s
                     else:
                         del sentences[i]
-                pickle.dump(sentences, f)
+                np.savez(f, *sentences)
             del sentences
             logging.info("Done")
         else:
