@@ -16,8 +16,12 @@ class Word2Vec(nn.Module):
 
         # u_embs: embedding for target word
         # v_embs: embedding for context words
-        self.u_embs = nn.Embedding(emb_size, emb_dimension, sparse=True, padding_idx=0)
-        self.v_embs = nn.Embedding(emb_size, emb_dimension, sparse=True, padding_idx=0)
+        self.u_embs = nn.Embedding(
+            emb_size, emb_dimension, sparse=True, padding_idx=0
+        )
+        self.v_embs = nn.Embedding(
+            emb_size, emb_dimension, sparse=True, padding_idx=0
+        )
 
         init_range = 0.5 / self.emb_dimension
         init.uniform_(self.u_embs.weight.data, -init_range, init_range)
@@ -46,7 +50,9 @@ class Word2Vec(nn.Module):
                         e = " ".join(map(lambda x: str(x), embs[wid]))
                         f.write("%s %s\n" % (w, e))
             else:
-                raise FileExistsError("'" + output_vec_path + ".txt' already exists")
+                raise FileExistsError(
+                    "'" + output_vec_path + ".txt' already exists"
+                )
         else:
             if not os.path.exists(output_vec_path + ".pkl") or overwrite:
                 print("Save embeddings to " + output_vec_path + ".pkl")
@@ -55,7 +61,9 @@ class Word2Vec(nn.Module):
                     embs_tmp, open(output_vec_path + ".pkl", "wb"),
                 )
             else:
-                raise FileExistsError("'" + output_vec_path + ".pkl' already exists")
+                raise FileExistsError(
+                    "'" + output_vec_path + ".pkl' already exists"
+                )
         print("Done")
 
 
@@ -101,7 +109,8 @@ class CBOW(Word2Vec):
         # Mean of context vector without considering padding idx (0)
         if self.cbow_mean:
             mean_v_embs = torch.true_divide(
-                torch.sum(v_embs, dim=1), (pos_v != 0).sum(dim=1).unsqueeze(dim=1),
+                torch.sum(v_embs, dim=1),
+                (pos_v != 0).sum(dim=1).unsqueeze(dim=1),
             )
         else:
             mean_v_embs = torch.sum(v_embs, dim=1)

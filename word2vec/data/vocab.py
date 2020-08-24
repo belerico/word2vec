@@ -38,15 +38,20 @@ class Producer(threading.Thread):
             else:
                 for sentence in chunk.split("\n"):
                     if len(sentence) <= self.max_sentence_length:
-                        self.sentences.append(sentence)
-                        self.word_freqs.update(sentence.split())
+                        new_sentence = sentence.split()
+                        self.sentences.append(new_sentence)
+                        self.word_freqs.update(new_sentence)
                     else:
                         self.q.put(sentence)
 
 
 class Consumer(threading.Thread):
     def __init__(
-        self, q: Queue, sentences: str, word_freqs: Counter, max_sentence_length=1000
+        self,
+        q: Queue,
+        sentences: str,
+        word_freqs: Counter,
+        max_sentence_length=1000,
     ):
         super(Consumer, self).__init__()
         self.buffer = []
@@ -73,10 +78,14 @@ class Consumer(threading.Thread):
                     ):
                         i += 1
                     if i + self.max_sentence_length < len(sent):
-                        new_sentence = sent[: self.max_sentence_length + i].split()
+                        new_sentence = sent[
+                            : self.max_sentence_length + i
+                        ].split()
                         self.sentences.append(new_sentence)
                         self.word_freqs.update(new_sentence)
-                        self.buffer.insert(0, sent[self.max_sentence_length + i :])
+                        self.buffer.insert(
+                            0, sent[self.max_sentence_length + i :]
+                        )
                     elif self.buffer:
                         self.buffer.insert(0, sent + self.buffer.pop(0))
                     else:
@@ -202,16 +211,17 @@ class Vocab:
             if not os.path.exists(os.path.dirname(sentences_path)):
                 os.makedirs(os.path.dirname(sentences_path))
             logging.info(
-                "Building and saving sentences (incrementally) to " + sentences_path
+                "Building and saving sentences (incrementally) to "
+                + sentences_path
             )
-            with open(os.path.join(sentences_path), "wb") as f:
+            with open(os.path.join(sentences_path), "w") as f:
                 s = []
                 for i, sentence in enumerate(sentences):
                     s = [self.word2id[w] for w in sentence if w in self.word2id]
                     if s:
                         self.word_cnt += len(s)
                         self.sentence_cnt += 1
-                        pickle.dump(s, f, protocol=pickle.HIGHEST_PROTOCOL)
+                        f.write(" ".join([str(wid) for wid in s]) + "\n")
             del sentences
             logging.info("Done")
         else:
@@ -251,7 +261,9 @@ class Vocab:
     def init_discard_table(self):
         logging.info("Building discard table for subsampling")
         x = np.array(list(self.word_freqs.values())) / self.word_cnt
-        self.discard_table = (np.sqrt(x / self.sample_thr) + 1) * (self.sample_thr / x)
+        self.discard_table = (np.sqrt(x / self.sample_thr) + 1) * (
+            self.sample_thr / x
+        )
         logging.info("Done")
 
     def get_negative_samples(self, ns_size=5):

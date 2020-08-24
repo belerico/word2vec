@@ -41,7 +41,11 @@ class Word2Vec:
         num_workers=0,
     ):
 
-        if str.lower(lr_type) not in ["triangular", "decay", "traingular_decay"]:
+        if str.lower(lr_type) not in [
+            "triangular",
+            "decay",
+            "traingular_decay",
+        ]:
             raise NotImplementedError(
                 "'lr_type' must be 'triangular', 'triangular_decay' or 'decay'"
             )
@@ -111,7 +115,9 @@ class Word2Vec:
         if self.optim == "sgd":
             optimizer = optim.SGD(self.model.parameters(), lr=self.initial_lr)
         else:
-            optimizer = optim.SparseAdam(self.model.parameters(), lr=self.initial_lr)
+            optimizer = optim.SparseAdam(
+                self.model.parameters(), lr=self.initial_lr
+            )
         lr = self.initial_lr
 
         # Global running loss and word count
@@ -141,8 +147,8 @@ class Word2Vec:
                     optimizer.step()
 
                     running_loss += loss.item()
-                    word_cnt += sample_batched[3]
-                    actual_word_cnt += sample_batched[3]
+                    word_cnt += len(sample_batched[0])
+                    actual_word_cnt += len(sample_batched[0])
 
                     if word_cnt > 10000:
                         word_cnt = word_cnt - 10000
@@ -153,12 +159,14 @@ class Word2Vec:
                         elif self.lr_type == "traingular_decay":
                             lr = self.initial_lr * (
                                 1.0
-                                - actual_word_cnt / ((epoch + 1) * self.data.word_cnt + 1)
+                                - actual_word_cnt
+                                / ((epoch + 1) * self.data.word_cnt + 1)
                             )
                         else:
                             lr = self.initial_lr * (
                                 1.0
-                                - actual_word_cnt / (self.epochs * self.data.word_cnt + 1)
+                                - actual_word_cnt
+                                / (self.epochs * self.data.word_cnt + 1)
                             )
                         if lr <= self.initial_lr * 0.0001:
                             lr = self.initial_lr * 0.0001
@@ -176,8 +184,6 @@ class Word2Vec:
                         )
             else:
                 logging.info("Empty batch: maybe next time")
-                word_cnt += sample_batched[3]
-                actual_word_cnt += sample_batched[3]
 
             logging.info(
                 "Epoch: {}, Elapsed: {:.2f}s, Training Loss: {:.4f}".format(
