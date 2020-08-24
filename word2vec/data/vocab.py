@@ -69,7 +69,10 @@ class Consumer(threading.Thread):
             else:
                 self.buffer.append(sentence)
                 self.q.task_done()
-                while len(self.buffer) > 1 or len(self.buffer[0]) > 1000:
+                while (
+                    len(self.buffer) > 1
+                    or len(self.buffer[0]) > self.max_sentence_length
+                ):
                     i = 0
                     sent = self.buffer.pop(0)
                     while (
@@ -92,7 +95,10 @@ class Consumer(threading.Thread):
                         self.buffer.insert(0, sent)
                         break
 
-        while len(self.buffer) > 1 or len(self.buffer[0]) > 1000:
+        while (
+            len(self.buffer) > 1
+            or len(self.buffer[0]) > self.max_sentence_length
+        ):
             i = 0
             sent = self.buffer.pop(0)
             while (
