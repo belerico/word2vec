@@ -134,4 +134,4 @@ class CBOW(Word2Vec):
         return -1 * (torch.sum(score) + torch.sum(neg_score))
 
     def get_word_vectors(self):
-        return self.v_embs.weight.cpu().data.numpy()
+        return self.u_embs.weight.cpu().data.numpy()

@@ -26,32 +26,23 @@ class Word2vecDataset(Dataset):
         self.window_size = window_size
         self.shrink_window_size = shrink_window_size
         self.ns_size = ns_size
-        self.sentences_path = open(sentences_path, "r")
-        self.mm = mmap.mmap(
-            self.sentences_path.fileno(), 0, access=mmap.ACCESS_READ
-        )
+        self.sentences_path = pickle.load(open(sentences_path, "rb"))
+        # self.mm = mmap.mmap(
+        #     self.sentences_path.fileno(), 0, access=mmap.ACCESS_READ
+        # )
         self.mikolov_context = mikolov_context
 
     def __len__(self):
         return self.data.sentence_cnt
 
     def __getitem__(self, idx):
-        # Load sentences incrementally
-        # try:
-        #     wids = pickle.load(self.mm)
-        # except EOFError:
-        #     self.mm.seek(0, 0)
-        #     return [], 0
-        wids = list(map(int, self.mm.readline().split()))
-        if not wids:
-            self.mm.seek(0, 0)
-            return []
 
+        wids = self.sentences_path[idx]
         subsampled_wids = []
         for wid in wids:
             if self.data.discard_table[wid] >= np.random.rand():
                 subsampled_wids.append(wid)
-        
+
         self.data.word_cnt -= len(wids) - len(subsampled_wids)
 
         if subsampled_wids:

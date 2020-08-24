@@ -2,7 +2,6 @@ import pickle
 import logging
 
 from scipy.spatial.distance import cosine
-from torch.utils.data import DataLoader
 
 from word2vec.data.dataset import Word2vecDataset
 from word2vec.data.vocab import Vocab
@@ -13,7 +12,7 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
-    # data = Vocab.load_vocab("./vocab/vocab_sample_pad.pkl")
+    # data = Vocab.load_vocab("./vocab/vocab_sample.pkl")
 
     # data.init_vocab()
     # data.init_unigram_table()
@@ -25,41 +24,37 @@ if __name__ == "__main__":
     # print("Unigram table: ", "\n", data.unigram_table)
     # print("Sorted word IDs by freq: ", "\n", data.sorted)
 
-    # dataset = Word2vecDataset(data, window_size=10, sg=0)
-    # dataloader = DataLoader(
-    #     dataset,
-    #     batch_size=1,
-    #     shuffle=False,
-    #     num_workers=0,
-    #     collate_fn=dataset.collate_cw
+    # dataset = Word2vecDataset(
+    #     data, "./sentences/sentences_sample.pkl", window_size=5, sg=1
     # )
 
-    # for i, batch in enumerate(dataloader):
-    #     print("Batch number " + str(i))
-    #     print("Target: ")
-    #     print(batch[0])
-    #     print("Context: ")
-    #     print(batch[1])
-    #     print("Negative: ")
-    #     print(batch[2])
+    # for epoch in range(5):
+    #     for i, _ in enumerate(dataset):
+    #         print(epoch, i)
 
     w2v = Word2Vec(
         train_file="./word2vec/data/dataset/sample.txt",
         input_vocab_path="./vocab/vocab_sample.pkl",
         output_vocab_path=None,
-        output_vec_path="./vec/vec_sample_sg",
+        output_vec_path="./vec/vec_sample_cw",
         output_vec_format="pkl",
-        sentences_path="./sentences/sentences_sample.pkl",
-        sg=1,
+        sentences_path="./sentences/sentence_sample.txt",
+        sg=0,
         min_count=5,
         batch_size=1,
         emb_dimension=10,
-        epochs=50,
+        epochs=100,
         ns_size=10,
         lr_type="decay",
         mikolov_context=True,
+        num_workers=0,
     )
     w2v.train()
-    embs = pickle.load(open("./vec/vec_sample_sg.pkl", "rb"))
-    print("Cosine between 'river' and 'flows' ", cosine(embs["river"], embs["flows"]))
-    print("Cosine between 'river' and 'far' ", cosine(embs["river"], embs["far"]))
+    embs = pickle.load(open("./vec/vec_sample_cw.pkl", "rb"))
+    print(
+        "Cosine between 'river' and 'flows' ",
+        cosine(embs["river"], embs["flows"]),
+    )
+    print(
+        "Cosine between 'river' and 'far' ", cosine(embs["river"], embs["far"])
+    )

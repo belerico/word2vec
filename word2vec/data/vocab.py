@@ -1,6 +1,7 @@
 import logging
 import os
 import pickle
+import string
 import threading
 from collections import Counter
 from queue import Queue
@@ -17,6 +18,7 @@ class Producer(threading.Thread):
         word_freqs: Counter,
         chunk_size=32768,
         max_sentence_length=1000,
+        simple_preprocess=True,
     ):
         super(Producer, self).__init__()
         self.file = open(filename, "r")
@@ -27,6 +29,11 @@ class Producer(threading.Thread):
         self.chunk_size = chunk_size
         assert isinstance(max_sentence_length, int) and max_sentence_length > 0
         self.max_sentence_length = max_sentence_length
+        self.simple_preprocess = simple_preprocess
+        if self.simple_preprocess:
+            self.remove_punct = str.maketrans(
+                string.punctuation, " " * len(string.punctuation)
+            )
 
     def run(self):
         stop = False
@@ -37,7 +44,14 @@ class Producer(threading.Thread):
                 stop = True
             else:
                 for sentence in chunk.split("\n"):
-                    if len(sentence) <= self.max_sentence_length:
+                    if self.simple_preprocess:
+                        sentence = str.lower(sentence).translate(
+                            self.remove_punct
+                        )
+                    if (
+                        len(sentence) > 1
+                        and len(sentence) <= self.max_sentence_length
+                    ):
                         new_sentence = sentence.split()
                         self.sentences.append(new_sentence)
                         self.word_freqs.update(new_sentence)
@@ -81,9 +95,9 @@ class Consumer(threading.Thread):
                     ):
                         i += 1
                     if i + self.max_sentence_length < len(sent):
-                        new_sentence = sent[
-                            : self.max_sentence_length + i
-                        ].split()
+                        new_sentence = (
+                            sent[: self.max_sentence_length + i].strip().split()
+                        )
                         self.sentences.append(new_sentence)
                         self.word_freqs.update(new_sentence)
                         self.buffer.insert(
@@ -107,7 +121,9 @@ class Consumer(threading.Thread):
             ):
                 i += 1
             if i + self.max_sentence_length < len(sent):
-                new_sentence = sent[: self.max_sentence_length + i].split()
+                new_sentence = (
+                    sent[: self.max_sentence_length + i].strip().split()
+                )
                 self.sentences.append(new_sentence)
                 self.word_freqs.update(new_sentence)
                 self.buffer.insert(0, sent[self.max_sentence_length + i :])
@@ -117,8 +133,10 @@ class Consumer(threading.Thread):
                 self.buffer.insert(0, sent)
                 break
 
-        self.sentences.append(self.buffer[0] if self.buffer else "")
-        self.word_freqs.update(self.buffer[0].split() if self.buffer else "")
+        if self.buffer:
+            last_sentence = self.buffer[0].strip().split()
+            self.sentences.append(last_sentence)
+            self.word_freqs.update(last_sentence)
 
 
 class Vocab:
@@ -134,18 +152,22 @@ class Vocab:
         overwrite=True,
         chunk_size=32768,
         queue_buf_size=100000,
+        simple_preprocess=True,
     ):
         if not train_file:
             raise FileNotFoundError("Train file path not specified")
 
         self.train_file = train_file
+        self.sentences_path = sentences_path
         self.min_count = min_count
         self.unigram_pow = unigram_pow
         self.sample_thr = sample_thr
         self.unigram_table_size = unigram_table_size
         self.max_sentence_length = max_sentence_length
+        self.overwrite = overwrite
         self.chunk_size = chunk_size
         self.queue_buf_size = queue_buf_size
+        self.simple_preprocess = simple_preprocess
 
         self.word_freqs = dict()
         self.word2id = dict()
@@ -156,7 +178,7 @@ class Vocab:
         self.neg_idx = 0
         self.unigram_table = []
         self.sorted = []
-        self.init_vocab(sentences_path, overwrite=overwrite)
+        self.init_vocab()
         self.init_unigram_table()
 
         # Add padding index
@@ -164,8 +186,8 @@ class Vocab:
         self.word2id["PAD"] = 0
         self.word_freqs[0] = 0
 
-    def save_vocab(self, vocab_path, overwrite=True):
-        if not os.path.exists(vocab_path) or overwrite:
+    def save_vocab(self, vocab_path):
+        if not os.path.exists(vocab_path) or self.overwrite:
             if not os.path.exists(os.path.dirname(vocab_path)):
                 os.makedirs(os.path.dirname(vocab_path))
             logging.info("Saving vocab to " + vocab_path)
@@ -184,14 +206,22 @@ class Vocab:
         else:
             raise FileNotFoundError("'" + vocab_path + "' not found")
 
-    def init_vocab(self, sentences_path: str, overwrite=False):
+    def init_vocab(self):
         logging.info("Building vocab")
         # Start Producer-Consumer thread to read "efficiently" (I hope) the train file
         q = Queue(self.queue_buf_size)
         word_freqs = Counter()
         sentences = []
 
-        producer = Producer(self.train_file, q, sentences, word_freqs)
+        producer = Producer(
+            self.train_file,
+            q,
+            sentences=sentences,
+            word_freqs=word_freqs,
+            chunk_size=self.chunk_size,
+            max_sentence_length=self.max_sentence_length,
+            simple_preprocess=self.simple_preprocess,
+        )
         consumer = Consumer(q, sentences, word_freqs)
 
         producer.start()
@@ -213,25 +243,30 @@ class Vocab:
         self.unique_word_cnt = wid - 1
         logging.info("Done")
 
-        if not os.path.exists(sentences_path) or overwrite:
-            if not os.path.exists(os.path.dirname(sentences_path)):
-                os.makedirs(os.path.dirname(sentences_path))
+        if not os.path.exists(self.sentences_path) or self.overwrite:
+            if not os.path.exists(os.path.dirname(self.sentences_path)):
+                os.makedirs(os.path.dirname(self.sentences_path))
             logging.info(
                 "Building and saving sentences (incrementally) to "
-                + sentences_path
+                + self.sentences_path
             )
-            with open(os.path.join(sentences_path), "w") as f:
+            with open(os.path.join(self.sentences_path), "wb") as f:
                 s = []
                 for i, sentence in enumerate(sentences):
                     s = [self.word2id[w] for w in sentence if w in self.word2id]
                     if s:
                         self.word_cnt += len(s)
                         self.sentence_cnt += 1
-                        f.write(" ".join([str(wid) for wid in s]) + "\n")
+                        sentences[i] = s
+                    else:
+                        del sentences[i]
+                pickle.dump(sentences, f)
             del sentences
             logging.info("Done")
         else:
-            raise FileExistsError("'" + sentences_path + "' already exists")
+            raise FileExistsError(
+                "'" + self.sentences_path + "' already exists"
+            )
 
         # Create the discard probability table
         self.discard_table = [0]

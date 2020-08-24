@@ -5,9 +5,9 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from word2vec.data.dataset import Word2vecDataset
-from word2vec.data.vocab import Vocab
-from word2vec.model import CBOW, SkipGram
+from .data.dataset import Word2vecDataset
+from .data.vocab import Vocab
+from .model import CBOW, SkipGram
 
 
 class Word2Vec:
@@ -39,6 +39,7 @@ class Word2Vec:
         mikolov_context=True,
         use_gpu=1,
         num_workers=0,
+        simple_preprocess=True
     ):
 
         if str.lower(lr_type) not in [
@@ -66,6 +67,8 @@ class Word2Vec:
                 unigram_pow=unigram_pow,
                 unigram_table_size=unigram_table_size,
                 sample_thr=sample_thr,
+                overwrite=overwrite,
+                simple_preprocess=simple_preprocess
             )
             if output_vocab_path and not input_vocab_path:
                 self.data.save_vocab(output_vocab_path)
