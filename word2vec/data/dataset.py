@@ -1,11 +1,9 @@
 # import mmap
 import pickle
-
 import random
 
 import numpy as np
 import torch
-
 # from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
@@ -22,7 +20,6 @@ class Word2vecDataset(Dataset):
         shrink_window_size=True,
         ns_size=5,
         mikolov_context=False,
-        device=None,
     ):
 
         self.data = data
@@ -36,7 +33,7 @@ class Word2vecDataset(Dataset):
         #     self.sentences_path.fileno(), 0, access=mmap.ACCESS_READ
         # )
         self.mikolov_context = mikolov_context
-        self.device = device
+        self.word_cnt_train = self.data.word_cnt
 
     def __len__(self):
         return self.data.sentence_cnt
@@ -48,8 +45,6 @@ class Word2vecDataset(Dataset):
         for wid in wids:
             if self.data.discard_table[wid] >= random.random():
                 subsampled_wids.append(wid)
-
-        self.data.word_cnt -= len(wids) - len(subsampled_wids)
 
         if subsampled_wids:
             # Shrink window by b
@@ -123,15 +118,16 @@ class Word2vecDataset(Dataset):
                                     ),
                                 )
                             )
-            return examples
+            return examples, len(wids)
         else:
-            return []
+            return [], 0
 
     def collate(self, batches):
         return (
-            torch.LongTensor([t for b in batches for t, _, _ in b]),
-            torch.LongTensor([c for b in batches for _, c, _ in b]),
-            torch.LongTensor([neg for b in batches for _, _, neg in b]),
+            torch.LongTensor([t for b in batches for t, _, _ in b[0]]),
+            torch.LongTensor([c for b in batches for _, c, _ in b[0]]),
+            torch.LongTensor([neg for b in batches for _, _, neg in b[0]]),
+            sum([b[1] for b in batches]),
         )
 
     # @staticmethod

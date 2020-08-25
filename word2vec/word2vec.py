@@ -76,7 +76,7 @@ class Word2Vec:
         self.use_gpu = torch.cuda.is_available() and use_gpu
         self.device = torch.device("cuda" if self.use_gpu else "cpu")
 
-        dataset = Word2vecDataset(
+        self.dataset = Word2vecDataset(
             self.data,
             sg=sg,
             window_size=window_size,
@@ -84,13 +84,12 @@ class Word2Vec:
             shrink_window_size=shrink_window_size,
             sentences_path=sentences_path,
             mikolov_context=mikolov_context,
-            device=self.device,
         )
         self.dataloader = DataLoader(
-            dataset,
+            self.dataset,
             batch_size=batch_size,
             shuffle=False,
-            collate_fn=dataset.collate,
+            collate_fn=self.dataset.collate,
             pin_memory=True,
             num_workers=num_workers,
         )
@@ -167,8 +166,8 @@ class Word2Vec:
                     optimizer.step()
 
                     running_loss += loss.item()
-                    word_cnt += len(sample_batched[0])
-                    actual_word_cnt += len(sample_batched[0])
+                    word_cnt += sample_batched[3]
+                    actual_word_cnt += sample_batched[3]
 
                     if word_cnt > 10000:
                         word_cnt = word_cnt - 10000
@@ -187,8 +186,8 @@ class Word2Vec:
                                 running_loss / (actual_word_cnt),
                             )
                         )
-            else:
-                logging.info("Empty batch: maybe next time")
+                else:
+                    logging.info("Empty batch: maybe next time")
 
             logging.info(
                 "Epoch: {}, Elapsed: {:.2f}s, Training Loss: {:.4f}".format(
