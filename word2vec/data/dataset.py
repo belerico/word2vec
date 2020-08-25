@@ -1,5 +1,5 @@
 # import mmap
-# import pickle
+import pickle
 
 import random
 
@@ -31,7 +31,7 @@ class Word2vecDataset(Dataset):
         self.shrink_window_size = shrink_window_size
         self.ns_size = ns_size
         self.sentences_path = open(sentences_path, "rb")
-        self.sentences = np.load(sentences_path, mmap_mode=None)
+        self.sentences = pickle.load(self.sentences_path)
         # self.mm = mmap.mmap(
         #     self.sentences_path.fileno(), 0, access=mmap.ACCESS_READ
         # )
@@ -43,7 +43,7 @@ class Word2vecDataset(Dataset):
 
     def __getitem__(self, idx):
 
-        wids = self.sentences["arr_" + str(idx)]
+        wids = self.sentences[idx]
         subsampled_wids = []
         for wid in wids:
             if self.data.discard_table[wid] >= random.random():

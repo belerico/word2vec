@@ -95,9 +95,9 @@ class Consumer(threading.Thread):
                     ):
                         i += 1
                     if i + self.max_sentence_length < len(sent):
-                        new_sentence = (
-                            sent[: self.max_sentence_length + i].split()
-                        )
+                        new_sentence = sent[
+                            : self.max_sentence_length + i
+                        ].split()
                         self.sentences.append(new_sentence)
                         self.word_freqs.update(new_sentence)
                         self.buffer.insert(
@@ -121,9 +121,7 @@ class Consumer(threading.Thread):
             ):
                 i += 1
             if i + self.max_sentence_length < len(sent):
-                new_sentence = (
-                    sent[: self.max_sentence_length + i].split()
-                )
+                new_sentence = sent[: self.max_sentence_length + i].split()
                 self.sentences.append(new_sentence)
                 self.word_freqs.update(new_sentence)
                 self.buffer.insert(0, sent[self.max_sentence_length + i :])
@@ -260,7 +258,7 @@ class Vocab:
                         sentences[i] = s
                     else:
                         del sentences[i]
-                np.savez(f, *sentences)
+                pickle.dump(sentences, f, protocol=pickle.HIGHEST_PROTOCOL)
             del sentences
             logging.info("Done")
         else:
@@ -271,7 +269,7 @@ class Vocab:
         # Create the discard probability table
         self.discard_table = [0]
         logging.info("Building discard table for subsampling")
-        for _, c in self.word_freqs.items():
+        for c in self.word_freqs.values():
             f = c / self.word_cnt
             self.discard_table.append(
                 (np.sqrt(f / self.sample_thr) + 1) * (self.sample_thr / f)
@@ -292,20 +290,12 @@ class Vocab:
         all_pow_freqs = np.sum(pow_freqs)
         count = np.round(pow_freqs / all_pow_freqs * self.unigram_table_size)
         for sorted_wid, c in enumerate(count):
-            self.unigram_table += [self.sorted[sorted_wid] + 1] * int(c)
+            self.unigram_table += [self.sorted[sorted_wid] + 1] * round(c)
         np.random.shuffle(self.unigram_table)
         logging.info("Done")
 
     def get_sorted_freqs(self):
         return np.array(list(self.word_freqs.values()))[self.sorted]
-
-    def init_discard_table(self):
-        logging.info("Building discard table for subsampling")
-        x = np.array(list(self.word_freqs.values())) / self.word_cnt
-        self.discard_table = (np.sqrt(x / self.sample_thr) + 1) * (
-            self.sample_thr / x
-        )
-        logging.info("Done")
 
     def get_negative_samples(self, ns_size=5):
         neg = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
