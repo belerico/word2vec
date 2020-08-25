@@ -116,6 +116,20 @@ class Word2Vec:
             self.model.cuda()
         # self.model = torch.nn.DataParallel(self.model)
 
+    def _get_lr_decay(self):
+        if self.lr_type == "triangular":
+            return lambda actual_word_cnt, epoch=None: self.initial_lr * (
+                1.0 - actual_word_cnt / (self.data.word_cnt + 1)
+            )
+        elif self.lr_type == "traingular_decay":
+            return lambda actual_word_cnt, epoch=None: self.initial_lr * (
+                1.0 - actual_word_cnt / ((epoch + 1) * self.data.word_cnt + 1)
+            )
+        else:
+            return lambda actual_word_cnt, epoch=None: self.initial_lr * (
+                1.0 - actual_word_cnt / (self.epochs * self.data.word_cnt + 1)
+            )
+
     def train(self):
         if self.optim == "sgd":
             optimizer = optim.SGD(self.model.parameters(), lr=self.initial_lr)
@@ -124,6 +138,7 @@ class Word2Vec:
                 self.model.parameters(), lr=self.initial_lr
             )
         lr = self.initial_lr
+        lr_decay = self._get_lr_decay()
 
         # Global running loss and word count
         running_loss = 0.0
@@ -142,9 +157,9 @@ class Word2Vec:
                     and len(sample_batched[1]) > 0
                 ):
 
-                    pos_u = sample_batched[0]
-                    pos_v = sample_batched[1]
-                    neg_v = sample_batched[2]
+                    pos_u = sample_batched[0].to(self.device, non_blocking=True)
+                    pos_v = sample_batched[1].to(self.device, non_blocking=True)
+                    neg_v = sample_batched[2].to(self.device, non_blocking=True)
 
                     optimizer.zero_grad()
                     loss = self.model.forward(pos_u, pos_v, neg_v)
@@ -157,22 +172,7 @@ class Word2Vec:
 
                     if word_cnt > 10000:
                         word_cnt = word_cnt - 10000
-                        if self.lr_type == "triangular":
-                            lr = self.initial_lr * (
-                                1.0 - actual_word_cnt / (self.data.word_cnt + 1)
-                            )
-                        elif self.lr_type == "traingular_decay":
-                            lr = self.initial_lr * (
-                                1.0
-                                - actual_word_cnt
-                                / ((epoch + 1) * self.data.word_cnt + 1)
-                            )
-                        else:
-                            lr = self.initial_lr * (
-                                1.0
-                                - actual_word_cnt
-                                / (self.epochs * self.data.word_cnt + 1)
-                            )
+                        lr = lr_decay(actual_word_cnt, epoch=epoch)
                         if lr <= self.initial_lr * 0.0001:
                             lr = self.initial_lr * 0.0001
                         for param_group in optimizer.param_groups:

@@ -129,15 +129,9 @@ class Word2vecDataset(Dataset):
 
     def collate(self, batches):
         return (
-            torch.LongTensor([t for b in batches for t, _, _ in b]).to(
-                self.device, non_blocking=True
-            ),
-            torch.LongTensor([c for b in batches for _, c, _ in b]).to(
-                self.device, non_blocking=True
-            ),
-            torch.LongTensor([neg for b in batches for _, _, neg in b]).to(
-                self.device, non_blocking=True
-            ),
+            torch.LongTensor([t for b in batches for t, _, _ in b]),
+            torch.LongTensor([c for b in batches for _, c, _ in b]),
+            torch.LongTensor([neg for b in batches for _, _, neg in b]),
         )
 
     # @staticmethod
