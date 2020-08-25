@@ -73,25 +73,29 @@ class SkipGram(Word2Vec):
 
     def forward(self, pos_u, pos_v, neg_v):
         u_embs = self.u_embs(pos_u)
-        v_embs = self.v_embs(pos_v)
 
-        # score = torch.mul(u_embs, v_embs)
+        score = (u_embs * self.v_embs(pos_v)).sum(dim=1)
+        # score = torch.mul(u_embs, self.v_embs(pos_v))
         # score = torch.sum(score, dim=1)
-        # score = torch.einsum("ij,ij->i", [u_embs, v_embs])  # Batch dot product
-        score = contract("ij,ij->i", u_embs, v_embs, backend="torch")
+        # score = torch.einsum("ij,ij->i", [u_embs, self.v_embs(pos_v)])  # Batch dot product
+        # score = contract(
+        #     "ij,ij->i", u_embs, self.v_embs(pos_v), backend="torch"
+        # )
         score = F.logsigmoid(score)
 
-        neg_v_embs = self.v_embs(neg_v)
-        # neg_score = torch.bmm(neg_v_embs, u_embs.unsqueeze(2))
+        neg_score = torch.bmm(self.v_embs(neg_v), u_embs.unsqueeze(2))
         # neg_score = torch.einsum(
-        #     "ijk,ikl->ijl", [neg_v_embs, u_embs.unsqueeze(2)]
+        #     "ijk,ikl->ijl", [self.v_embs(neg_v), u_embs.unsqueeze(2)]
         # )  # Batch matrix multiplication
-        neg_score = contract(
-            "ijk,ikl->ijl", neg_v_embs, u_embs.unsqueeze(2), backend="torch"
-        )  # Batch matrix multiplication
+        # neg_score = contract(
+        #     "ijk,ikl->ijl",
+        #     self.v_embs(neg_v),
+        #     u_embs.unsqueeze(2),
+        #     backend="torch",
+        # )  # Batch matrix multiplication
         neg_score = F.logsigmoid(-1 * neg_score)
 
-        return -1 * (torch.sum(score) + torch.sum(neg_score))
+        return -1 * (score.sum() + neg_score.sum())
 
     def get_word_vectors(self):
         return self.u_embs.weight.cpu().data.numpy()
@@ -104,34 +108,43 @@ class CBOW(Word2Vec):
 
     def forward(self, pos_u, pos_v, neg_v):
         u_embs = self.u_embs(pos_u)
-        v_embs = self.v_embs(pos_v)
 
         # Mean of context vector without considering padding idx (0)
+        mean_v_embs = self.v_embs(pos_v).sum(dim=1)
         if self.cbow_mean:
-            mean_v_embs = torch.true_divide(
-                torch.sum(v_embs, dim=1),
-                (pos_v != 0).sum(dim=1).unsqueeze(dim=1),
-            )
-        else:
-            mean_v_embs = torch.sum(v_embs, dim=1)
+            mean_v_embs = mean_v_embs / (pos_v != 0).sum(dim=1, keepdim=True)
 
+        score = (u_embs * mean_v_embs).sum(dim=1)
         # score = torch.mul(u_embs, mean_v_embs)
         # score = torch.sum(score, dim=1)
-        # score = torch.einsum("ij,ij->i", [u_embs, mean_v_embs])  # Batch dot product
-        score = contract("ij,ij->i", u_embs, mean_v_embs, backend="torch")
+        # score = torch.einsum(
+        #     "ij,ij->i", [u_embs, mean_v_embs]
+        # )  # Batch dot product
+        # score = contract(
+        #     "ij,ij->i",
+        #     u_embs,
+        #     mean_v_embs,
+        #     backend="torch",
+        #     optimize="dp",
+        #     use_blas=True,
+        # )
         score = F.logsigmoid(score)
 
-        neg_v_embs = self.v_embs(neg_v)
-        # neg_score = torch.bmm(neg_v_embs, u_embs.unsqueeze(2))
+        neg_score = torch.bmm(self.v_embs(neg_v), u_embs.unsqueeze(2))
         # neg_score = torch.einsum(
-        #     "ijk,ikl->ijl", [neg_v_embs, u_embs.unsqueeze(2)]
+        #     "ijk,ikl->ijl", [self.v_embs(neg_v), u_embs.unsqueeze(2)]
         # )  # Batch matrix multiplication
-        neg_score = contract(
-            "ijk,ikl->ijl", neg_v_embs, u_embs.unsqueeze(2), backend="torch"
-        )  # Batch matrix multiplication
+        # neg_score = contract(
+        #     "ijk,ikl->ijl",
+        #     self.v_embs(neg_v),
+        #     u_embs.unsqueeze(2),
+        #     backend="torch",
+        #     optimize="dp",
+        #     use_blas=True,
+        # )  # Batch matrix multiplication
         neg_score = F.logsigmoid(-1 * neg_score)
 
-        return -1 * (torch.sum(score) + torch.sum(neg_score))
+        return -1 * (score.sum() + neg_score.sum())
 
     def get_word_vectors(self):
         return self.u_embs.weight.cpu().data.numpy()

@@ -39,7 +39,7 @@ class Word2Vec:
         mikolov_context=True,
         use_gpu=1,
         num_workers=0,
-        simple_preprocess=True
+        simple_preprocess=True,
     ):
 
         if str.lower(lr_type) not in [
@@ -68,7 +68,7 @@ class Word2Vec:
                 unigram_table_size=unigram_table_size,
                 sample_thr=sample_thr,
                 overwrite=overwrite,
-                simple_preprocess=simple_preprocess
+                simple_preprocess=simple_preprocess,
             )
             if output_vocab_path and not input_vocab_path:
                 self.data.save_vocab(output_vocab_path)
@@ -86,8 +86,8 @@ class Word2Vec:
             dataset,
             batch_size=batch_size,
             shuffle=False,
-            collate_fn=dataset.collate_sg if sg else dataset.collate_cw,
-            pin_memory=True,
+            collate_fn=dataset.collate,
+            pin_memory=False,
             num_workers=num_workers,
         )
 
@@ -135,7 +135,7 @@ class Word2Vec:
 
             for i, sample_batched in enumerate(self.dataloader):
                 if (
-                    len(sample_batched)
+                    sample_batched
                     and len(sample_batched[0]) > 0
                     and len(sample_batched[1]) > 0
                 ):
