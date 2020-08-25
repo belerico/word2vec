@@ -290,7 +290,7 @@ class Vocab:
         all_pow_freqs = np.sum(pow_freqs)
         count = np.round(pow_freqs / all_pow_freqs * self.unigram_table_size)
         for sorted_wid, c in enumerate(count):
-            self.unigram_table += [self.sorted[sorted_wid] + 1] * round(c)
+            self.unigram_table += [self.sorted[sorted_wid] + 1] * int(round(c))
         np.random.shuffle(self.unigram_table)
         logging.info("Done")
 
