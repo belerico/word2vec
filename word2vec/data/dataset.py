@@ -22,6 +22,7 @@ class Word2vecDataset(Dataset):
         shrink_window_size=True,
         ns_size=5,
         mikolov_context=False,
+        device=None,
     ):
 
         self.data = data
@@ -35,6 +36,7 @@ class Word2vecDataset(Dataset):
         #     self.sentences_path.fileno(), 0, access=mmap.ACCESS_READ
         # )
         self.mikolov_context = mikolov_context
+        self.device = device
 
     def __len__(self):
         return self.data.sentence_cnt
@@ -125,12 +127,17 @@ class Word2vecDataset(Dataset):
         else:
             return []
 
-    @staticmethod
-    def collate(batches):
+    def collate(self, batches):
         return (
-            torch.LongTensor([t for b in batches for t, _, _ in b]),
-            torch.LongTensor([c for b in batches for _, c, _ in b]),
-            torch.LongTensor([neg for b in batches for _, _, neg in b]),
+            torch.LongTensor([t for b in batches for t, _, _ in b]).to(
+                self.device, non_blocking=True
+            ),
+            torch.LongTensor([c for b in batches for _, c, _ in b]).to(
+                self.device, non_blocking=True
+            ),
+            torch.LongTensor([neg for b in batches for _, _, neg in b]).to(
+                self.device, non_blocking=True
+            ),
         )
 
     # @staticmethod

@@ -73,6 +73,9 @@ class Word2Vec:
             if output_vocab_path and not input_vocab_path:
                 self.data.save_vocab(output_vocab_path)
 
+        self.use_gpu = torch.cuda.is_available() and use_gpu
+        self.device = torch.device("cuda" if self.use_gpu else "cpu")
+
         dataset = Word2vecDataset(
             self.data,
             sg=sg,
@@ -81,13 +84,14 @@ class Word2Vec:
             shrink_window_size=shrink_window_size,
             sentences_path=sentences_path,
             mikolov_context=mikolov_context,
+            device=self.device,
         )
         self.dataloader = DataLoader(
             dataset,
             batch_size=batch_size,
             shuffle=False,
             collate_fn=dataset.collate,
-            pin_memory=False,
+            pin_memory=True,
             num_workers=num_workers,
         )
 
@@ -108,8 +112,6 @@ class Word2Vec:
             else CBOW(self.emb_size, self.emb_dimension, cbow_mean)
         )
 
-        self.use_gpu = torch.cuda.is_available() and use_gpu
-        self.device = torch.device("cuda" if self.use_gpu else "cpu")
         if self.use_gpu:
             self.model.cuda()
         # self.model = torch.nn.DataParallel(self.model)
@@ -140,9 +142,9 @@ class Word2Vec:
                     and len(sample_batched[1]) > 0
                 ):
 
-                    pos_u = sample_batched[0].to(self.device)
-                    pos_v = sample_batched[1].to(self.device)
-                    neg_v = sample_batched[2].to(self.device)
+                    pos_u = sample_batched[0]
+                    pos_v = sample_batched[1]
+                    neg_v = sample_batched[2]
 
                     optimizer.zero_grad()
                     loss = self.model.forward(pos_u, pos_v, neg_v)
