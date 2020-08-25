@@ -250,16 +250,15 @@ class Vocab:
             )
             with open(os.path.join(self.sentences_path), "wb") as f:
                 s = []
+                sentences_wid = []
                 for i, sentence in enumerate(sentences):
                     s = [self.word2id[w] for w in sentence if w in self.word2id]
                     if s:
                         self.word_cnt += len(s)
                         self.sentence_cnt += 1
-                        sentences[i] = s
-                    else:
-                        del sentences[i]
-                pickle.dump(sentences, f, protocol=pickle.HIGHEST_PROTOCOL)
-            del sentences
+                        sentences_wid.append(s)
+                pickle.dump(sentences_wid, f, protocol=pickle.HIGHEST_PROTOCOL)
+            del sentences, sentences_wid
             logging.info("Done")
         else:
             raise FileExistsError(
