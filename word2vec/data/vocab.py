@@ -105,6 +105,7 @@ class Vocab:
         self.unigram_table = []
         self.sorted = []
         self.init_vocab()
+        self.init_unigram_table()
 
         # Add padding index
         self.id2word[0] = "PAD"
@@ -176,6 +177,13 @@ class Vocab:
             )
         logging.info("Done")
 
+        logging.info("Word (after min) count: " + str(self.word_cnt))
+        logging.info("Unique word count: " + str(self.unique_word_cnt))
+
+        # Sorted indices by frequency, descending order
+        self.sorted = np.argsort(list(self.word_freqs.values()))[::-1]
+
+    def init_unigram_table(self):
         logging.info("Building unigram table for negative sampling")
         pow_freqs = self.get_sorted_freqs() ** self.unigram_pow
         all_pow_freqs = np.sum(pow_freqs)
@@ -184,12 +192,6 @@ class Vocab:
             self.unigram_table += [self.sorted[sorted_wid] + 1] * int(round(c))
         np.random.shuffle(self.unigram_table)
         logging.info("Done")
-
-        logging.info("Word (after min) count: " + str(self.word_cnt))
-        logging.info("Unique word count: " + str(self.unique_word_cnt))
-
-        # Sorted indices by frequency, descending order
-        self.sorted = np.argsort(list(self.word_freqs.values()))[::-1]
 
     def get_sorted_freqs(self):
         return np.array(list(self.word_freqs.values()))[self.sorted]
