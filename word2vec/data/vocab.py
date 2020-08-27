@@ -14,21 +14,16 @@ class Producer(threading.Thread):
         self,
         filename: str,
         q: Queue,
-        sentences: list,
         word_freqs: Counter,
         chunk_size=32768,
-        max_sentence_length=1000,
         simple_preprocess=True,
     ):
         super(Producer, self).__init__()
         self.file = open(filename, "r")
         self.q = q
-        self.sentences = sentences
         self.word_freqs = word_freqs
         assert chunk_size > 0
         self.chunk_size = chunk_size
-        assert isinstance(max_sentence_length, int) and max_sentence_length > 0
-        self.max_sentence_length = max_sentence_length
         self.simple_preprocess = simple_preprocess
         if self.simple_preprocess:
             self.remove_punct = str.maketrans(
@@ -43,105 +38,39 @@ class Producer(threading.Thread):
                 self.q.put(-1)
                 stop = True
             else:
-                for sentence in chunk.split("\n"):
-                    if self.simple_preprocess:
-                        sentence = str.lower(sentence).translate(
-                            self.remove_punct
-                        )
-                    if (
-                        len(sentence) > 1
-                        and len(sentence) <= self.max_sentence_length
-                    ):
-                        new_sentence = sentence.split()
-                        self.sentences.append(new_sentence)
-                        self.word_freqs.update(new_sentence)
+                while True:
+                    c = self.file.read(1)
+                    if not c or c.isspace():
+                        break
                     else:
-                        self.q.put(sentence)
+                        chunk += c
+                if self.simple_preprocess:
+                    chunk = str.lower(chunk).translate(self.remove_punct)
+                self.q.put(chunk)
 
 
 class Consumer(threading.Thread):
     def __init__(
-        self,
-        q: Queue,
-        sentences: str,
-        word_freqs: Counter,
-        max_sentence_length=1000,
+        self, q: Queue, word_freqs: Counter,
     ):
         super(Consumer, self).__init__()
-        self.buffer = []
         self.q = q
-        self.sentences = sentences
         self.word_freqs = word_freqs
-        self.max_sentence_length = max_sentence_length
 
     def run(self):
         stop = False
         while not stop:
-            sentence = self.q.get()
-            if sentence == -1:
+            chunk = self.q.get()
+            if chunk == -1:
                 stop = True
             else:
-                self.buffer.append(sentence)
-                self.q.task_done()
-                while (
-                    len(self.buffer) > 1
-                    or len(self.buffer[0]) > self.max_sentence_length
-                ):
-                    i = 0
-                    sent = self.buffer.pop(0)
-                    while (
-                        i + self.max_sentence_length < len(sent)
-                        and not sent[self.max_sentence_length + i].isspace()
-                    ):
-                        i += 1
-                    if i + self.max_sentence_length < len(sent):
-                        new_sentence = sent[
-                            : self.max_sentence_length + i
-                        ].split()
-                        self.sentences.append(new_sentence)
-                        self.word_freqs.update(new_sentence)
-                        self.buffer.insert(
-                            0, sent[self.max_sentence_length + i :]
-                        )
-                    elif self.buffer:
-                        self.buffer.insert(0, sent + self.buffer.pop(0))
-                    else:
-                        self.buffer.insert(0, sent)
-                        break
-
-        while (
-            len(self.buffer) > 1
-            or len(self.buffer[0]) > self.max_sentence_length
-        ):
-            i = 0
-            sent = self.buffer.pop(0)
-            while (
-                i + self.max_sentence_length < len(sent)
-                and not sent[self.max_sentence_length + i].isspace()
-            ):
-                i += 1
-            if i + self.max_sentence_length < len(sent):
-                new_sentence = sent[: self.max_sentence_length + i].split()
-                self.sentences.append(new_sentence)
-                self.word_freqs.update(new_sentence)
-                self.buffer.insert(0, sent[self.max_sentence_length + i :])
-            elif self.buffer:
-                self.buffer.insert(0, sent + self.buffer.pop(0))
-            else:
-                self.buffer.insert(0, sent)
-                break
-
-        if self.buffer:
-            last_sentence = self.buffer[0].split()
-            self.sentences.append(last_sentence)
-            self.word_freqs.update(last_sentence)
+                self.word_freqs.update(chunk.split())
 
 
 class Vocab:
     def __init__(
         self,
         train_file=None,
-        sentences_path=None,
         min_count=5,
         unigram_pow=0.75,
         sample_thr=0.001,
@@ -156,7 +85,6 @@ class Vocab:
             raise FileNotFoundError("Train file path not specified")
 
         self.train_file = train_file
-        self.sentences_path = sentences_path
         self.min_count = min_count
         self.unigram_pow = unigram_pow
         self.sample_thr = sample_thr
@@ -177,7 +105,6 @@ class Vocab:
         self.unigram_table = []
         self.sorted = []
         self.init_vocab()
-        self.init_unigram_table()
 
         # Add padding index
         self.id2word[0] = "PAD"
@@ -209,18 +136,15 @@ class Vocab:
         # Start Producer-Consumer thread to read "efficiently" (I hope) the train file
         q = Queue(self.queue_buf_size)
         word_freqs = Counter()
-        sentences = []
 
         producer = Producer(
             self.train_file,
             q,
-            sentences=sentences,
             word_freqs=word_freqs,
             chunk_size=self.chunk_size,
-            max_sentence_length=self.max_sentence_length,
             simple_preprocess=self.simple_preprocess,
         )
-        consumer = Consumer(q, sentences, word_freqs)
+        consumer = Consumer(q, word_freqs)
 
         producer.start()
         consumer.start()
@@ -236,34 +160,11 @@ class Vocab:
                 self.word2id[w] = wid
                 self.id2word[wid] = w
                 self.word_freqs[w] = c
+                self.word_cnt += c
                 wid += 1
         del word_freqs
         self.unique_word_cnt = wid - 1
         logging.info("Done")
-
-        if not os.path.exists(self.sentences_path) or self.overwrite:
-            if not os.path.exists(os.path.dirname(self.sentences_path)):
-                os.makedirs(os.path.dirname(self.sentences_path))
-            logging.info(
-                "Building and saving sentences (incrementally) to "
-                + self.sentences_path
-            )
-            with open(os.path.join(self.sentences_path), "wb") as f:
-                s = []
-                sentences_wid = []
-                for i, sentence in enumerate(sentences):
-                    s = [self.word2id[w] for w in sentence if w in self.word2id]
-                    if s:
-                        self.word_cnt += len(s)
-                        self.sentence_cnt += 1
-                        sentences_wid.append(s)
-                pickle.dump(sentences_wid, f, protocol=pickle.HIGHEST_PROTOCOL)
-            del sentences, sentences_wid
-            logging.info("Done")
-        else:
-            raise FileExistsError(
-                "'" + self.sentences_path + "' already exists"
-            )
 
         # Create the discard probability table
         self.discard_table = [0]
@@ -275,15 +176,6 @@ class Vocab:
             )
         logging.info("Done")
 
-        # logging.info("Train words: " + str(train_words))
-        logging.info("Word (after min) count: " + str(self.word_cnt))
-        logging.info("Sentence count: " + str(self.sentence_cnt))
-        logging.info("Unique word count: " + str(self.unique_word_cnt))
-
-        # Sorted indices by frequency, descending order
-        self.sorted = np.argsort(list(self.word_freqs.values()))[::-1]
-
-    def init_unigram_table(self):
         logging.info("Building unigram table for negative sampling")
         pow_freqs = self.get_sorted_freqs() ** self.unigram_pow
         all_pow_freqs = np.sum(pow_freqs)
@@ -292,6 +184,12 @@ class Vocab:
             self.unigram_table += [self.sorted[sorted_wid] + 1] * int(round(c))
         np.random.shuffle(self.unigram_table)
         logging.info("Done")
+
+        logging.info("Word (after min) count: " + str(self.word_cnt))
+        logging.info("Unique word count: " + str(self.unique_word_cnt))
+
+        # Sorted indices by frequency, descending order
+        self.sorted = np.argsort(list(self.word_freqs.values()))[::-1]
 
     def get_sorted_freqs(self):
         return np.array(list(self.word_freqs.values()))[self.sorted]

@@ -110,9 +110,13 @@ class CBOW(Word2Vec):
         u_embs = self.u_embs(pos_u)
 
         # Mean of context vector without considering padding idx (0)
-        mean_v_embs = self.v_embs(pos_v).sum(dim=1)
         if self.cbow_mean:
-            mean_v_embs = mean_v_embs / (pos_v != 0).sum(dim=1, keepdim=True)
+            mean_v_embs = torch.true_divide(
+                self.v_embs(pos_v).sum(dim=1),
+                (pos_v != 0).sum(dim=1, keepdim=True),
+            )
+        else:
+            mean_v_embs = self.v_embs(pos_v).sum(dim=1)
 
         score = (u_embs * mean_v_embs).sum(dim=1)
         # score = torch.mul(u_embs, mean_v_embs)

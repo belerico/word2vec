@@ -18,7 +18,7 @@ class Word2Vec:
         output_vocab_path=None,
         output_vec_path=None,
         output_vec_format=None,
-        sentences_path=None,
+        # sentences_path=None,
         overwrite=True,
         sg=1,
         emb_dimension=100,
@@ -61,7 +61,7 @@ class Word2Vec:
         else:
             self.data = Vocab(
                 train_file=train_file,
-                sentences_path=sentences_path,
+                # sentences_path=sentences_path,
                 min_count=min_count,
                 max_sentence_length=max_sentence_length,
                 unigram_pow=unigram_pow,
@@ -82,7 +82,7 @@ class Word2Vec:
             window_size=window_size,
             ns_size=ns_size,
             shrink_window_size=shrink_window_size,
-            sentences_path=sentences_path,
+            # sentences_path=sentences_path,
             mikolov_context=mikolov_context,
         )
         self.dataloader = DataLoader(
@@ -146,10 +146,11 @@ class Word2Vec:
 
         for epoch in range(self.epochs):
             t0 = time.time()
+            epoch_word_cnt = 0
             if self.lr_type == "triangular":
                 actual_word_cnt = 0
 
-            for i, sample_batched in enumerate(self.dataloader):
+            for sample_batched in self.dataloader:
                 if (
                     sample_batched
                     and len(sample_batched[0]) > 0
@@ -167,6 +168,7 @@ class Word2Vec:
 
                     running_loss += loss.item()
                     word_cnt += sample_batched[3]
+                    epoch_word_cnt += sample_batched[3]
                     actual_word_cnt += sample_batched[3]
 
                     if word_cnt > 10000:
@@ -177,10 +179,10 @@ class Word2Vec:
                         for param_group in optimizer.param_groups:
                             param_group["lr"] = lr
 
-                    if i % 200 == 0:
+                    if epoch_word_cnt % 200 == 0:
                         logging.info(
                             "Progress: {:.4f}%, Elapsed: {:.2f}s, Lr: {}, Loss: {:.4f}".format(
-                                ((i / self.data.sentence_cnt) * 100),
+                                ((epoch_word_cnt / self.data.word_cnt) * 100),
                                 time.time() - t0,
                                 round(lr, 8),
                                 running_loss / (actual_word_cnt),
