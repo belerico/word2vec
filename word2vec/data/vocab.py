@@ -1,70 +1,9 @@
 import logging
 import os
 import pickle
-import string
-import threading
 from collections import Counter
-from queue import Queue
 
 import numpy as np
-
-
-class Producer(threading.Thread):
-    def __init__(
-        self,
-        filename: str,
-        q: Queue,
-        word_freqs: Counter,
-        chunk_size=32768,
-        simple_preprocess=True,
-    ):
-        super(Producer, self).__init__()
-        self.file = open(filename, "r")
-        self.q = q
-        self.word_freqs = word_freqs
-        assert chunk_size > 0
-        self.chunk_size = chunk_size
-        self.simple_preprocess = simple_preprocess
-        if self.simple_preprocess:
-            self.remove_punct = str.maketrans(
-                string.punctuation, " " * len(string.punctuation)
-            )
-
-    def run(self):
-        stop = False
-        while not stop:
-            chunk = self.file.read(self.chunk_size)
-            if not chunk:
-                self.q.put(-1)
-                stop = True
-            else:
-                while True:
-                    c = self.file.read(1)
-                    if not c or c.isspace():
-                        break
-                    else:
-                        chunk += c
-                if self.simple_preprocess:
-                    chunk = str.lower(chunk).translate(self.remove_punct)
-                self.q.put(chunk)
-
-
-class Consumer(threading.Thread):
-    def __init__(
-        self, q: Queue, word_freqs: Counter,
-    ):
-        super(Consumer, self).__init__()
-        self.q = q
-        self.word_freqs = word_freqs
-
-    def run(self):
-        stop = False
-        while not stop:
-            chunk = self.q.get()
-            if chunk == -1:
-                stop = True
-            else:
-                self.word_freqs.update(chunk.split())
 
 
 class Vocab:
@@ -79,7 +18,6 @@ class Vocab:
         overwrite=True,
         chunk_size=32768,
         queue_buf_size=100000,
-        simple_preprocess=True,
     ):
         if not train_file:
             raise FileNotFoundError("Train file path not specified")
@@ -93,7 +31,6 @@ class Vocab:
         self.overwrite = overwrite
         self.chunk_size = chunk_size
         self.queue_buf_size = queue_buf_size
-        self.simple_preprocess = simple_preprocess
 
         self.word_freqs = dict()
         self.word2id = dict()
@@ -134,23 +71,20 @@ class Vocab:
 
     def init_vocab(self):
         logging.info("Building vocab")
-        # Start Producer-Consumer thread to read "efficiently" (I hope) the train file
-        q = Queue(self.queue_buf_size)
         word_freqs = Counter()
-
-        producer = Producer(
-            self.train_file,
-            q,
-            word_freqs=word_freqs,
-            chunk_size=self.chunk_size,
-            simple_preprocess=self.simple_preprocess,
-        )
-        consumer = Consumer(q, word_freqs)
-
-        producer.start()
-        consumer.start()
-        producer.join()
-        consumer.join()
+        with open(self.train_file, "r") as f:
+            while True:
+                chunk = f.read(self.chunk_size)
+                if not chunk:
+                    break
+                else:
+                    while True:
+                        c = f.read(1)
+                        if not c or c.isspace():
+                            break
+                        else:
+                            chunk += c
+                    word_freqs.update(chunk.split())
         logging.info("Done")
 
         logging.info("Updating info")

@@ -28,28 +28,20 @@ class Word2vecDataset(IterableDataset):
         self.shrink_window_size = shrink_window_size
         self.ns_size = ns_size
         self.train_file = open(self.data.train_file, "r")
-        self.buffer = self.train_file.read(32768)
-        self.idx_buffer = 0
+        self.train_file.seek(0, 0)
         self.mikolov_context = mikolov_context
 
     def __iter__(self):
-
+        epoch_ends = False
         while True:
             w = ""
             wids = []
             subsampled_wids = []
             while True:
-                if self.idx_buffer >= len(self.buffer):
-                    self.buffer = self.train_file.read(32768)
-                    self.idx_buffer = 0
-                if not self.buffer:
-                    self.train_file.seek(0, 0)
-                    self.buffer = self.train_file.read(32768)
-                    self.idx_buffer = 0
-                    return
-                c = self.buffer[self.idx_buffer]
-                self.idx_buffer += 1
-                if c.isspace():
+                c = self.train_file.read(1)
+                if c.isspace() or not c:
+                    if not c:
+                        epoch_ends = True
                     wid = self.data.word2id.get(w, -1)
                     if wid != -1:
                         wids.append(wid)
@@ -58,6 +50,7 @@ class Word2vecDataset(IterableDataset):
                     if (
                         len(subsampled_wids) >= self.data.max_sentence_length
                         or c == "\n"
+                        or not c
                     ):
                         break
                     w = ""
@@ -146,6 +139,9 @@ class Word2vecDataset(IterableDataset):
                 yield examples, len(wids)
             else:
                 yield [], 0
+            if epoch_ends:
+                self.train_file.seek(0, 0)
+                return
 
     def collate(self, batches):
         return (

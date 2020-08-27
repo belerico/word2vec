@@ -34,11 +34,10 @@ if __name__ == "__main__":
 
     w2v = Word2Vec(
         train_file="./word2vec/data/dataset/sample.txt",
-        input_vocab_path="./vocab/vocab_sample.pkl",
-        output_vocab_path=None,
+        input_vocab_path=None,
+        output_vocab_path="./vocab/vocab_sample.pkl",
         output_vec_path="./vec/vec_sample_cw",
         output_vec_format="pkl",
-        sentences_path="./sentences/sentence_sample.txt",
         sg=0,
         min_count=5,
         batch_size=1,

@@ -39,7 +39,6 @@ class Word2Vec:
         mikolov_context=True,
         use_gpu=1,
         num_workers=0,
-        simple_preprocess=True,
     ):
 
         if str.lower(lr_type) not in [
@@ -68,7 +67,6 @@ class Word2Vec:
                 unigram_table_size=unigram_table_size,
                 sample_thr=sample_thr,
                 overwrite=overwrite,
-                simple_preprocess=simple_preprocess,
             )
             if output_vocab_path and not input_vocab_path:
                 self.data.save_vocab(output_vocab_path)
@@ -179,7 +177,6 @@ class Word2Vec:
                         for param_group in optimizer.param_groups:
                             param_group["lr"] = lr
 
-                    if epoch_word_cnt % 200 == 0:
                         logging.info(
                             "Progress: {:.4f}%, Elapsed: {:.2f}s, Lr: {}, Loss: {:.4f}".format(
                                 ((epoch_word_cnt / self.data.word_cnt) * 100),
