@@ -18,11 +18,10 @@ class Word2Vec:
         output_vocab_path=None,
         output_vec_path=None,
         output_vec_format=None,
-        # sentences_path=None,
+        sentences_path=None,
         overwrite=True,
         sg=1,
         emb_dimension=100,
-        batch_size=1,
         min_count=5,
         window_size=5,
         shrink_window_size=True,
@@ -36,7 +35,6 @@ class Word2Vec:
         lr_type="decay",
         optim="sgd",
         cbow_mean=True,
-        mikolov_context=True,
         use_gpu=1,
         num_workers=0,
     ):
@@ -60,7 +58,7 @@ class Word2Vec:
         else:
             self.data = Vocab(
                 train_file=train_file,
-                # sentences_path=sentences_path,
+                sentences_path=sentences_path,
                 min_count=min_count,
                 max_sentence_length=max_sentence_length,
                 unigram_pow=unigram_pow,
@@ -80,12 +78,11 @@ class Word2Vec:
             window_size=window_size,
             ns_size=ns_size,
             shrink_window_size=shrink_window_size,
-            # sentences_path=sentences_path,
-            mikolov_context=mikolov_context,
+            sentences_path=sentences_path,
         )
         self.dataloader = DataLoader(
             self.dataset,
-            batch_size=batch_size,
+            batch_size=1,
             shuffle=False,
             collate_fn=self.dataset.collate,
             pin_memory=True,
@@ -96,7 +93,6 @@ class Word2Vec:
         self.output_vec_format = output_vec_format
         self.emb_size = len(self.data.word2id)
         self.emb_dimension = emb_dimension
-        self.batch_size = batch_size
         self.epochs = epochs
         self.initial_lr = initial_lr
         self.overwrite = overwrite
@@ -137,8 +133,7 @@ class Word2Vec:
         lr = self.initial_lr
         lr_decay = self._get_lr_decay()
 
-        # Global running loss and word count
-        running_loss = 0.0
+        # Global word count
         word_cnt = 0
         actual_word_cnt = 0
 
@@ -164,7 +159,6 @@ class Word2Vec:
                     loss.backward()
                     optimizer.step()
 
-                    running_loss += loss.item()
                     word_cnt += sample_batched[3]
                     epoch_word_cnt += sample_batched[3]
                     actual_word_cnt += sample_batched[3]
@@ -178,20 +172,17 @@ class Word2Vec:
                             param_group["lr"] = lr
 
                         logging.info(
-                            "Progress: {:.4f}%, Elapsed: {:.2f}s, Lr: {}, Loss: {:.4f}".format(
+                            "Progress: {:.4f}%, Elapsed: {:.2f}s, Lr: {}".format(
                                 ((epoch_word_cnt / self.data.word_cnt) * 100),
                                 time.time() - t0,
                                 round(lr, 8),
-                                running_loss / (actual_word_cnt),
                             )
                         )
                 else:
                     logging.info("Empty batch: maybe next time")
 
             logging.info(
-                "Epoch: {}, Elapsed: {:.2f}s, Training Loss: {:.4f}".format(
-                    epoch, time.time() - t0, running_loss / actual_word_cnt
-                )
+                "Epoch: {}, Elapsed: {:.2f}s".format(epoch, time.time() - t0,)
             )
         if self.output_vec_path:
             self.model.save_embeddings(

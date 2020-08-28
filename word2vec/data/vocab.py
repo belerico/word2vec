@@ -13,6 +13,7 @@ class Vocab:
     def __init__(
         self,
         train_file=None,
+        sentences_path=None,
         min_count=5,
         unigram_pow=0.75,
         sample_thr=0.001,
@@ -20,12 +21,12 @@ class Vocab:
         max_sentence_length=1000,
         overwrite=True,
         chunk_size=32768,
-        queue_buf_size=100000,
     ):
         if not train_file:
             raise FileNotFoundError("Train file path not specified")
 
         self.train_file = train_file
+        self.sentences_path = sentences_path
         self.min_count = min_count
         self.unigram_pow = unigram_pow
         self.sample_thr = sample_thr
@@ -33,7 +34,6 @@ class Vocab:
         self.max_sentence_length = max_sentence_length
         self.overwrite = overwrite
         self.chunk_size = chunk_size
-        self.queue_buf_size = queue_buf_size
 
         self.word_freqs = dict()
         self.word2id = dict()
@@ -58,7 +58,11 @@ class Vocab:
             if not os.path.exists(os.path.dirname(vocab_path)):
                 os.makedirs(os.path.dirname(vocab_path))
             logging.info("Saving vocab to " + vocab_path)
-            pickle.dump(self, open(os.path.join(vocab_path), "wb"), protocol=-1)
+            pickle.dump(
+                self,
+                open(os.path.join(vocab_path), "wb"),
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
             logging.info("Done")
         else:
             raise FileExistsError("'" + vocab_path + "' already exists")
@@ -120,36 +124,46 @@ class Vocab:
         len_wids = 0
         sentences = []
         subsampled_wids = []
-        f = open(self.train_file, "r")
-        g = open("./sentences/sentences.pkl", "wb")
-        while True:
-            c = f.read(1)
-            if c.isspace() or not c:
-                wid = self.word2id.get(w, -1)
-                len_wids += 1
-                if wid != -1:
-                    if self.discard_table[wid] >= random.random():
-                        subsampled_wids.append(wid)
-                if len(subsampled_wids) >= self.max_sentence_length or (
-                    (c == "\n" or not c) and len(subsampled_wids) > 1
-                ):
-                    self.sentence_cnt += 1
-                    sentences.append((subsampled_wids, len_wids))
-                    len_wids = 0
-                    subsampled_wids = []
-                    if not c:
-                        break
-                w = ""
-            else:
-                w += c
-        f.close()
-        pickle.dump(
-            sentences, g, protocol=pickle.HIGHEST_PROTOCOL,
-        )
-        g.close()
+        with open(self.train_file, "r") as f:
+            while True:
+                c = f.read(1)
+                if c.isspace() or not c:
+                    wid = self.word2id.get(w, -1)
+                    if wid != -1:
+                        len_wids += 1
+                        if self.discard_table[wid] >= random.random():
+                            subsampled_wids.append(wid)
+                    if len(subsampled_wids) >= self.max_sentence_length or (
+                        (c == "\n" or not c) and len(subsampled_wids) > 1
+                    ):
+                        self.sentence_cnt += 1
+                        sentences.append((subsampled_wids, len_wids))
+                        len_wids = 0
+                        subsampled_wids = []
+                        if not c:
+                            break
+                    w = ""
+                else:
+                    w += c
         logging.info("Done")
+        if not os.path.exists(self.sentences_path) or self.overwrite:
+            if not os.path.exists(os.path.dirname(self.sentences_path)):
+                os.makedirs(os.path.dirname(self.sentences_path))
+            logging.info("Saving sentences to " + self.sentences_path)
+            pickle.dump(
+                sentences,
+                open(self.sentences_path, "wb"),
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
+            logging.info("Done")
+        else:
+            raise FileExistsError(
+                "'" + self.sentences_path + "' already exists"
+            )
+        del sentences, subsampled_wids
 
         logging.info("Word (after min) count: " + str(self.word_cnt))
+        logging.info("Sentences count: " + str(self.sentence_cnt))
         logging.info("Unique word count: " + str(self.unique_word_cnt))
 
         # Sorted indices by frequency, descending order
@@ -159,7 +173,7 @@ class Vocab:
         logging.info("Building unigram table for negative sampling")
         pow_freqs = self.get_sorted_freqs() ** self.unigram_pow
         all_pow_freqs = np.sum(pow_freqs)
-        count = np.round(pow_freqs / all_pow_freqs * self.unigram_table_size)
+        count = (pow_freqs / all_pow_freqs) * self.unigram_table_size
         for sorted_wid, c in enumerate(count):
             self.unigram_table += [self.sorted[sorted_wid] + 1] * int(round(c))
         np.random.shuffle(self.unigram_table)

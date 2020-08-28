@@ -2,11 +2,10 @@
 import pickle
 import random
 
-import numpy as np
 import torch
 
 # from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import IterableDataset, Dataset
+from torch.utils.data import Dataset
 
 from .vocab import Vocab
 
@@ -15,12 +14,11 @@ class Word2vecDataset(Dataset):
     def __init__(
         self,
         data: Vocab,
-        # sentences_path: str,
+        sentences_path: str,
         sg=1,
         window_size=5,
         shrink_window_size=True,
         ns_size=5,
-        mikolov_context=False,
     ):
 
         self.data = data
@@ -28,8 +26,7 @@ class Word2vecDataset(Dataset):
         self.window_size = window_size
         self.shrink_window_size = shrink_window_size
         self.ns_size = ns_size
-        self.sentences = pickle.load(open("./sentences/sentences.pkl", "rb"))
-        self.mikolov_context = mikolov_context
+        self.sentences = pickle.load(open(sentences_path, "rb"))
 
     def __len__(self):
         return self.data.sentence_cnt
@@ -39,7 +36,7 @@ class Word2vecDataset(Dataset):
         # Shrink window by b
         b = self.window_size
         if self.shrink_window_size:
-            b = np.random.randint(1, self.window_size + 1)
+            b = random.randint(1, self.window_size + 1)
 
         examples = []
         if self.sg:

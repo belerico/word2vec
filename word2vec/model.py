@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
-from opt_einsum import contract
+# from opt_einsum import contract
 
 
 class Word2Vec(nn.Module):
@@ -74,9 +74,9 @@ class SkipGram(Word2Vec):
     def forward(self, pos_u, pos_v, neg_v):
         u_embs = self.u_embs(pos_u)
 
-        score = (u_embs * self.v_embs(pos_v)).sum(dim=1)
-        # score = torch.mul(u_embs, self.v_embs(pos_v))
-        # score = torch.sum(score, dim=1)
+        # score = (u_embs * self.v_embs(pos_v)).sum(dim=1)
+        score = torch.mul(u_embs, self.v_embs(pos_v))
+        score = torch.sum(score, dim=1)
         # score = torch.einsum("ij,ij->i", [u_embs, self.v_embs(pos_v)])  # Batch dot product
         # score = contract(
         #     "ij,ij->i", u_embs, self.v_embs(pos_v), backend="torch"
@@ -118,9 +118,9 @@ class CBOW(Word2Vec):
         else:
             mean_v_embs = self.v_embs(pos_v).sum(dim=1)
 
-        score = (u_embs * mean_v_embs).sum(dim=1)
-        # score = torch.mul(u_embs, mean_v_embs)
-        # score = torch.sum(score, dim=1)
+        # score = (u_embs * mean_v_embs).sum(dim=1)
+        score = torch.mul(u_embs, mean_v_embs)
+        score = torch.sum(score, dim=1)
         # score = torch.einsum(
         #     "ij,ij->i", [u_embs, mean_v_embs]
         # )  # Batch dot product
