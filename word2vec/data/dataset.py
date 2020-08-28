@@ -138,11 +138,10 @@ class Word2vecDataset(IterableDataset):
                     examples = []
                     if self.mikolov_context:
                         for i, target in enumerate(subsampled_wids):
-                            context = [
-                                c
-                                for c in subsampled_wids[max(0, i - b) : i]
+                            context = (
+                                subsampled_wids[max(0, i - b) : i]
                                 + subsampled_wids[i + 1 : i + b + 1]
-                            ]
+                            )
                             if context:
                                 examples.append(
                                     (
