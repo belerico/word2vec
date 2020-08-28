@@ -1,9 +1,12 @@
 import logging
 import os
 import pickle
+import random
 from collections import Counter
 
 import numpy as np
+
+random.seed(42)
 
 
 class Vocab:
@@ -110,6 +113,40 @@ class Vocab:
             self.discard_table.append(
                 (np.sqrt(f / self.sample_thr) + 1) * (self.sample_thr / f)
             )
+        logging.info("Done")
+
+        logging.info("Pre-building sentences of subsampled words")
+        w = ""
+        len_wids = 0
+        sentences = []
+        subsampled_wids = []
+        f = open(self.train_file, "r")
+        g = open("./sentences/sentences.pkl", "wb")
+        while True:
+            c = f.read(1)
+            if c.isspace() or not c:
+                wid = self.word2id.get(w, -1)
+                len_wids += 1
+                if wid != -1:
+                    if self.discard_table[wid] >= random.random():
+                        subsampled_wids.append(wid)
+                if len(subsampled_wids) >= self.max_sentence_length or (
+                    (c == "\n" or not c) and len(subsampled_wids) > 1
+                ):
+                    self.sentence_cnt += 1
+                    sentences.append((subsampled_wids, len_wids))
+                    len_wids = 0
+                    subsampled_wids = []
+                    if not c:
+                        break
+                w = ""
+            else:
+                w += c
+        f.close()
+        pickle.dump(
+            sentences, g, protocol=pickle.HIGHEST_PROTOCOL,
+        )
+        g.close()
         logging.info("Done")
 
         logging.info("Word (after min) count: " + str(self.word_cnt))
