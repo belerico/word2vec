@@ -43,6 +43,7 @@ class Vocab:
         self.sorted = []
         self.init_vocab()
         self.init_unigram_table()
+        self.unigram_table_len = len(self.unigram_table)
 
         # Add padding index
         self.id2word[0] = "PAD"
@@ -132,7 +133,7 @@ class Vocab:
 
     def get_negative_samples(self, ns_size=5):
         neg = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
-        self.neg_idx = (self.neg_idx + ns_size) % len(self.unigram_table)
+        self.neg_idx = (self.neg_idx + ns_size) % self.unigram_table_len
         if len(neg) != ns_size:
-            return np.concatenate((neg, self.unigram_table[0 : self.neg_idx]))
+            return neg + self.unigram_table[0 : self.neg_idx]
         return neg

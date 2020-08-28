@@ -66,29 +66,74 @@ class Word2vecDataset(IterableDataset):
                 examples = []
                 if self.sg:
                     if self.mikolov_context:
-                        examples = [
-                            (
-                                target,
-                                context,
-                                self.data.get_negative_samples(self.ns_size),
+                        # examples = [
+                        #     (
+                        #         target,
+                        #         context,
+                        #         self.data.get_negative_samples(self.ns_size),
+                        #     )
+                        #     for i, target in enumerate(subsampled_wids)
+                        #     for context in subsampled_wids[max(0, i - b) : i]
+                        #     + subsampled_wids[i + 1 : i + b + 1]
+                        # ]
+                        for i, target in enumerate(subsampled_wids):
+                            context = (
+                                subsampled_wids[max(0, i - b) : i]
+                                + subsampled_wids[i + 1 : i + b + 1]
                             )
-                            for i, target in enumerate(subsampled_wids)
-                            for context in subsampled_wids[max(0, i - b) : i]
-                            + subsampled_wids[i + 1 : i + b + 1]
-                        ]
+                            neg = self.data.get_negative_samples(
+                                self.ns_size * len(context)
+                            )
+                            for j, c in enumerate(context):
+                                examples.append(
+                                    (
+                                        target,
+                                        c,
+                                        neg[
+                                            j
+                                            * self.ns_size : (j + 1)
+                                            * self.ns_size
+                                        ],
+                                    )
+                                )
                     else:
-                        examples = [
-                            (
-                                target,
-                                context,
-                                self.data.get_negative_samples(self.ns_size),
+                        # examples = [
+                        #     (
+                        #         target,
+                        #         context,
+                        #         self.data.get_negative_samples(self.ns_size),
+                        #     )
+                        #     for i, target in enumerate(subsampled_wids)
+                        #     for context in subsampled_wids[max(0, i - b) : i]
+                        #     + subsampled_wids[i + 1 : i + b + 1]
+                        #     if context
+                        #     in wids[max(i - b, 0) : i] + wids[i + 1 : i + b + 1]
+                        # ]
+                        for i, target in enumerate(subsampled_wids):
+                            context = (
+                                subsampled_wids[max(0, i - b) : i]
+                                + subsampled_wids[i + 1 : i + b + 1]
                             )
-                            for i, target in enumerate(subsampled_wids)
-                            for context in subsampled_wids[max(0, i - b) : i]
-                            + subsampled_wids[i + 1 : i + b + 1]
-                            if context
-                            in wids[max(i - b, 0) : i] + wids[i + 1 : i + b + 1]
-                        ]
+                            neg = self.data.get_negative_samples(
+                                self.ns_size * len(context)
+                            )
+                            for j, c in enumerate(context):
+                                if (
+                                    c
+                                    in wids[max(i - b, 0) : i]
+                                    + wids[i + 1 : i + b + 1]
+                                ):
+                                    examples.append(
+                                        (
+                                            target,
+                                            c,
+                                            neg[
+                                                j
+                                                * self.ns_size : (j + 1)
+                                                * self.ns_size
+                                            ],
+                                        )
+                                    )
                 else:
                     examples = []
                     if self.mikolov_context:

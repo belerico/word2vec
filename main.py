@@ -34,22 +34,22 @@ if __name__ == "__main__":
 
     w2v = Word2Vec(
         train_file="./word2vec/data/dataset/sample.txt",
-        input_vocab_path=None,
-        output_vocab_path="./vocab/vocab_sample.pkl",
-        output_vec_path="./vec/vec_sample_cw",
+        input_vocab_path="./vocab/vocab_sample.pkl",
+        output_vocab_path=None,
+        output_vec_path="./vec/vec_sample_sg",
         output_vec_format="pkl",
-        sg=0,
+        sg=1,
         min_count=5,
         batch_size=1,
         emb_dimension=10,
         epochs=100,
-        ns_size=10,
+        ns_size=5,
         lr_type="decay",
         mikolov_context=True,
         num_workers=0,
     )
     w2v.train()
-    embs = pickle.load(open("./vec/vec_sample_cw.pkl", "rb"))
+    embs = pickle.load(open("./vec/vec_sample_sg.pkl", "rb"))
     print(
         "Cosine between 'river' and 'flows' ",
         cosine(embs["river"], embs["flows"]),
