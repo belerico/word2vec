@@ -85,7 +85,7 @@ class Word2Vec:
             batch_size=1,
             shuffle=False,
             collate_fn=self.dataset.collate,
-            pin_memory=False,
+            pin_memory=True,
             num_workers=num_workers,
         )
 

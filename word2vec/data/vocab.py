@@ -212,12 +212,16 @@ class Vocab:
         return np.array(list(self.word_freqs.values()))[self.sorted]
 
     def get_negative_samples(self, target, ns_size=5):
-        idx_negs = np.random.randint(
-            low=0, high=len(self.unigram_table), size=ns_size
-        )
-        negs = [
-            self.unigram_table[i]
-            for i in idx_negs
-            if target != self.unigram_table[i]
+        # negs = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
+        # self.neg_idx += ns_size
+        # if len(negs) != ns_size:
+        #     self.neg_idx -= self.unigram_table_len
+        #     negs += self.unigram_table[0 : self.neg_idx]
+        # negs = [neg if neg != target else 0 for neg in negs]
+        # return negs
+        return [
+            self.unigram_table[i] if target != self.unigram_table[i] else 0
+            for i in np.random.randint(
+                low=0, high=self.unigram_table_len, size=ns_size
+            )
         ]
-        return negs + [0] * (ns_size - len(negs))
