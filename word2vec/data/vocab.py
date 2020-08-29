@@ -143,7 +143,7 @@ class Vocab:
                 if self.discard_table[wid] >= random.random():
                     subsampled_wids.append(wid)
             if len(subsampled_wids) >= self.max_sentence_length or (
-                c == "\n" and len(subsampled_wids) > 1
+                w == "\n" and len(subsampled_wids) > 1
             ):
                 self.sentence_cnt += 1
                 sentences.append((subsampled_wids, len_wids))
