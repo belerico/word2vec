@@ -125,7 +125,14 @@ class Word2Vec:
 
     def train(self):
         if self.optim == "sgd":
-            optimizer = optim.SGD(self.model.parameters(), lr=self.initial_lr)
+            optimizer = optim.SGD(
+                self.model.parameters(),
+                lr=self.initial_lr,
+                momentum=0,
+                dampening=0,
+                weight_decay=0,
+                nesterov=False,
+            )
         else:
             optimizer = optim.SparseAdam(
                 self.model.parameters(), lr=self.initial_lr
@@ -135,6 +142,7 @@ class Word2Vec:
 
         # Global word count
         word_cnt = 0
+        running_loss = 0
         actual_word_cnt = 0
 
         for epoch in range(self.epochs):
@@ -162,6 +170,7 @@ class Word2Vec:
                     word_cnt += sample_batched[3]
                     epoch_word_cnt += sample_batched[3]
                     actual_word_cnt += sample_batched[3]
+                    running_loss += loss.item()
 
                     if word_cnt > 10000:
                         word_cnt = word_cnt - 10000
@@ -172,17 +181,23 @@ class Word2Vec:
                             param_group["lr"] = lr
 
                         logging.info(
-                            "Progress: {:.4f}%, Elapsed: {:.2f}s, Lr: {}".format(
+                            "Progress: {:.4f}%, Elapsed: {:.2f}s, Lr: {}, Loss: {:.4f}".format(
                                 ((epoch_word_cnt / self.data.word_cnt) * 100),
                                 time.time() - t0,
                                 round(lr, 8),
+                                running_loss / actual_word_cnt,
                             )
                         )
                 else:
                     logging.info("Empty batch: maybe next time")
 
             logging.info(
-                "Epoch: {}, Elapsed: {:.2f}s".format(epoch, time.time() - t0,)
+                "Epoch: {}, Elapsed: {:.2f}s, Lr: {}, Loss: {:.4f}".format(
+                    epoch,
+                    time.time() - t0,
+                    round(lr, 8),
+                    running_loss / actual_word_cnt,
+                )
             )
         if self.output_vec_path:
             self.model.save_embeddings(

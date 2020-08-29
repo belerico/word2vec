@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
+
 # from opt_einsum import contract
 
 
@@ -22,10 +23,6 @@ class Word2Vec(nn.Module):
         self.v_embs = nn.Embedding(
             emb_size, emb_dimension, sparse=True, padding_idx=0
         )
-
-        init_range = 0.5 / self.emb_dimension
-        init.uniform_(self.u_embs.weight.data, -init_range, init_range)
-        init.constant_(self.v_embs.weight.data, 0)
 
     def forward(self, pos_u, pos_v, neg_v):
         raise NotImplementedError
@@ -70,6 +67,9 @@ class Word2Vec(nn.Module):
 class SkipGram(Word2Vec):
     def __init__(self, emb_size, emb_dimension):
         super(SkipGram, self).__init__(emb_size, emb_dimension)
+        init_range = 0.5 / self.emb_dimension
+        init.uniform_(self.u_embs.weight.data, -init_range, init_range)
+        init.constant_(self.v_embs.weight.data, 0)
 
     def forward(self, pos_u, pos_v, neg_v):
         u_embs = self.u_embs(pos_u)
@@ -105,18 +105,22 @@ class CBOW(Word2Vec):
     def __init__(self, emb_size, emb_dimension, cbow_mean=True):
         super(CBOW, self).__init__(emb_size, emb_dimension)
         self.cbow_mean = cbow_mean
+        init_range = 0.5 / self.emb_dimension
+        init.uniform_(self.v_embs.weight.data, -init_range, init_range)
+        init.constant_(self.u_embs.weight.data, 0)
+        self.v_embs.weight.data[0, :] = 0
 
     def forward(self, pos_u, pos_v, neg_v):
         u_embs = self.u_embs(pos_u)
+        v_embs = self.v_embs(pos_v)
 
         # Mean of context vector without considering padding idx (0)
         if self.cbow_mean:
             mean_v_embs = torch.true_divide(
-                self.v_embs(pos_v).sum(dim=1),
-                (pos_v != 0).sum(dim=1, keepdim=True),
+                v_embs.sum(dim=1), (pos_v != 0).sum(dim=1, keepdim=True),
             )
         else:
-            mean_v_embs = self.v_embs(pos_v).sum(dim=1)
+            mean_v_embs = v_embs.sum(dim=1)
 
         # score = (u_embs * mean_v_embs).sum(dim=1)
         score = torch.mul(u_embs, mean_v_embs)

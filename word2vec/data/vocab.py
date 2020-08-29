@@ -7,7 +7,7 @@ from collections import Counter, deque
 
 import numpy as np
 
-random.seed(42)
+np.random.seed(42)
 
 
 class Vocab:
@@ -125,10 +125,12 @@ class Vocab:
         self.discard_table = np.zeros(len(self.word_freqs) + 1, dtype=np.float)
         logging.info("Building discard table for subsampling")
         for w, c in self.word_freqs.items():
-            f = c / self.word_cnt
+            # (sqrt(vocab[word].cn / (sample * train_words)) + 1) * (sample * train_words) / vocab[word].cn;
             self.discard_table[self.word2id[w]] = (
-                np.sqrt(f / self.sample_thr) + 1
-            ) * (self.sample_thr / f)
+                (np.sqrt(c / (self.sample_thr * self.word_cnt)) + 1)
+                * (self.sample_thr * self.word_cnt)
+                / c
+            )
         logging.info("Done")
 
         logging.info("Pre-building sentences of subsampled words")
@@ -140,15 +142,17 @@ class Vocab:
             wid = self.word2id.get(w, -1)
             if wid != -1:
                 len_wids += 1
-                if self.discard_table[wid] >= random.random():
-                    subsampled_wids.append(wid)
+                if self.discard_table[wid] < np.random.rand():
+                    continue
+                subsampled_wids.append(wid)
             if len(subsampled_wids) >= self.max_sentence_length or (
-                w == "\n" and len(subsampled_wids) > 1
+                w == "\n" and len(subsampled_wids) >= 1
             ):
                 self.sentence_cnt += 1
                 sentences.append((subsampled_wids, len_wids))
                 len_wids = 0
                 subsampled_wids = []
+        del tokens
         logging.info("Done")
         if not os.path.exists(self.sentences_path) or self.overwrite:
             if not os.path.exists(os.path.dirname(self.sentences_path)):
@@ -172,20 +176,48 @@ class Vocab:
     def init_unigram_table(self):
         logging.info("Building unigram table for negative sampling")
         pow_freqs = self.get_sorted_freqs() ** self.unigram_pow
-        all_pow_freqs = np.sum(pow_freqs)
-        count = (pow_freqs / all_pow_freqs) * self.unigram_table_size
+        denom = np.sum(pow_freqs)
+        count = np.round((pow_freqs / denom) * self.unigram_table_size)
         for sorted_wid, c in enumerate(count):
-            self.unigram_table += [self.sorted[sorted_wid] + 1] * int(round(c))
-        np.random.shuffle(self.unigram_table)
+            self.unigram_table += [self.sorted[sorted_wid] + 1] * int(c)
+        # np.random.shuffle(self.unigram_table)
+        # frac = pow_freqs / denom
+        # self.unigram_table = deque()
+        # wid = 1  # Word ID by the descending order frequencies
+        # d1 = frac[wid - 1]
+        # for i in range(int(self.unigram_table_size)):
+        #     self.unigram_table.append(self.sorted[wid - 1] + 1)
+
+        #     # If the fraction of the table we have filled is greater than the
+        #     # probability of choosing this word, then move to the next word.
+        #     if i / self.unigram_table_size > d1:
+        #         # Move to the next word.
+        #         wid += 1
+
+        #         # Calculate the probability for the new word, and accumulate it
+        #         # with the probabilities of all previous words, so that we can
+        #         # compare d1 to the percentage of the table that we have filled.
+        #         d1 += frac[wid - 1]
+
+        #     # Don't go past the end of the vocab.
+        #     # The total weights for all words should sum up to 1,
+        #     # so there shouldn't be any extra space at the end of
+        #     # the table. Maybe it's possible to be off by 1, though?
+        #     # Or maybe this is just precautionary.
+        #     if wid >= len(pow_freqs) + 1:
+        #         wid = len(pow_freqs)
         logging.info("Done")
 
     def get_sorted_freqs(self):
         return np.array(list(self.word_freqs.values()))[self.sorted]
 
-    def get_negative_samples(self, ns_size=5):
-        neg = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
-        self.neg_idx += ns_size
-        if len(neg) != ns_size:
-            self.neg_idx -= self.unigram_len
-            return neg + self.unigram_table[0 : self.neg_idx]
-        return neg
+    def get_negative_samples(self, target, ns_size=5):
+        idx_negs = np.random.randint(
+            low=0, high=len(self.unigram_table), size=ns_size
+        )
+        negs = [
+            self.unigram_table[i]
+            for i in idx_negs
+            if target != self.unigram_table[i]
+        ]
+        return negs + [0] * (ns_size - len(negs))

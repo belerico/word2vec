@@ -36,32 +36,36 @@ class Word2vecDataset(Dataset):
         # Shrink window by b
         b = self.window_size
         if self.shrink_window_size:
-            b = random.randint(1, self.window_size + 1)
+            b = random.randint(1, self.window_size)
 
         examples = []
         if self.sg:
-            # examples = [
-            #     (target, context, self.data.get_negative_samples(self.ns_size),)
-            #     for i, target in enumerate(subsampled_wids)
-            #     for context in subsampled_wids[max(0, i - b) : i]
-            #     + subsampled_wids[i + 1 : i + b + 1]
-            # ]
-            for i, target in enumerate(subsampled_wids):
-                contexts = (
-                    subsampled_wids[max(0, i - b) : i]
-                    + subsampled_wids[i + 1 : i + b + 1]
+            examples = [
+                (
+                    target,
+                    context,
+                    self.data.get_negative_samples(target, self.ns_size),
                 )
-                negs = self.data.get_negative_samples(
-                    len(contexts) * self.ns_size
-                )
-                for j, context in enumerate(contexts):
-                    examples.append(
-                        (
-                            target,
-                            context,
-                            negs[j * self.ns_size : (j + 1) * self.ns_size],
-                        )
-                    )
+                for i, target in enumerate(subsampled_wids)
+                for context in subsampled_wids[max(0, i - b) : i]
+                + subsampled_wids[i + 1 : i + b + 1]
+            ]
+            # for i, target in enumerate(subsampled_wids):
+            #     contexts = (
+            #         subsampled_wids[max(0, i - b) : i]
+            #         + subsampled_wids[i + 1 : i + b + 1]
+            #     )
+            #     negs = self.data.get_negative_samples(
+            #         len(contexts) * self.ns_size
+            #     )
+            #     for j, context in enumerate(contexts):
+            #         examples.append(
+            #             (
+            #                 target,
+            #                 context,
+            #                 negs[j * self.ns_size : (j + 1) * self.ns_size],
+            #             )
+            #         )
         else:
             for i, target in enumerate(subsampled_wids):
                 context = (
@@ -72,7 +76,7 @@ class Word2vecDataset(Dataset):
                     (
                         target,
                         context + [0 for _ in range(2 * b - len(context))],
-                        self.data.get_negative_samples(self.ns_size),
+                        self.data.get_negative_samples(target, self.ns_size),
                     )
                 )
         return examples, len_wids
