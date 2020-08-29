@@ -85,7 +85,7 @@ class Word2Vec:
             batch_size=1,
             shuffle=False,
             collate_fn=self.dataset.collate,
-            pin_memory=True,
+            pin_memory=False,
             num_workers=num_workers,
         )
 
@@ -150,9 +150,9 @@ class Word2Vec:
                     and len(sample_batched[1]) > 0
                 ):
 
-                    pos_u = sample_batched[0].to(self.device, non_blocking=True)
-                    pos_v = sample_batched[1].to(self.device, non_blocking=True)
-                    neg_v = sample_batched[2].to(self.device, non_blocking=True)
+                    pos_v = sample_batched[1].to(self.device)
+                    neg_v = sample_batched[2].to(self.device)
+                    pos_u = sample_batched[0].to(self.device)
 
                     optimizer.zero_grad()
                     loss = self.model.forward(pos_u, pos_v, neg_v)

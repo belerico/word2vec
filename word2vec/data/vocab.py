@@ -2,7 +2,8 @@ import logging
 import os
 import pickle
 import random
-from collections import Counter
+import re
+from collections import Counter, deque
 
 import numpy as np
 
@@ -41,12 +42,18 @@ class Vocab:
         self.sentence_cnt = 0
         self.word_cnt = 0
         self.unique_word_cnt = 0
+        self.train_words = 0
         self.neg_idx = 0
         self.unigram_table = []
         self.sorted = []
         self.init_vocab()
         self.init_unigram_table()
         self.unigram_table_len = len(self.unigram_table)
+
+        logging.info("Train words: " + str(self.train_words))
+        logging.info("Word (after min) count: " + str(self.word_cnt))
+        logging.info("Sentences count: " + str(self.sentence_cnt))
+        logging.info("Unique word count: " + str(self.unique_word_cnt))
 
         # Add padding index
         self.id2word[0] = "PAD"
@@ -79,7 +86,9 @@ class Vocab:
 
     def init_vocab(self):
         logging.info("Building vocab")
+        delim = re.compile(r"(\S+|\n)")
         word_freqs = Counter()
+        tokens = deque()
         with open(self.train_file, "r") as f:
             while True:
                 chunk = f.read(self.chunk_size)
@@ -92,14 +101,17 @@ class Vocab:
                             break
                         else:
                             chunk += c
-                    word_freqs.update(chunk.split())
+                    split = delim.findall(chunk)
+                    tokens.extend(split)
+                    word_freqs.update(split)
         logging.info("Done")
 
         logging.info("Updating info")
         # Keep only those words with a frequency >= min_count
         wid = 1
         for w, c in word_freqs.items():
-            if c >= self.min_count:
+            self.train_words += c
+            if w != "\n" and c >= self.min_count:
                 self.word2id[w] = wid
                 self.id2word[wid] = w
                 self.word_freqs[w] = c
@@ -110,41 +122,33 @@ class Vocab:
         logging.info("Done")
 
         # Create the discard probability table
-        self.discard_table = [0]
+        self.discard_table = np.zeros(len(self.word_freqs) + 1, dtype=np.float)
         logging.info("Building discard table for subsampling")
-        for c in self.word_freqs.values():
+        for w, c in self.word_freqs.items():
             f = c / self.word_cnt
-            self.discard_table.append(
-                (np.sqrt(f / self.sample_thr) + 1) * (self.sample_thr / f)
-            )
+            self.discard_table[self.word2id[w]] = (
+                np.sqrt(f / self.sample_thr) + 1
+            ) * (self.sample_thr / f)
         logging.info("Done")
 
         logging.info("Pre-building sentences of subsampled words")
-        w = ""
         len_wids = 0
         sentences = []
         subsampled_wids = []
-        with open(self.train_file, "r") as f:
-            while True:
-                c = f.read(1)
-                if c.isspace() or not c:
-                    wid = self.word2id.get(w, -1)
-                    if wid != -1:
-                        len_wids += 1
-                        if self.discard_table[wid] >= random.random():
-                            subsampled_wids.append(wid)
-                    if len(subsampled_wids) >= self.max_sentence_length or (
-                        (c == "\n" or not c) and len(subsampled_wids) > 1
-                    ):
-                        self.sentence_cnt += 1
-                        sentences.append((subsampled_wids, len_wids))
-                        len_wids = 0
-                        subsampled_wids = []
-                        if not c:
-                            break
-                    w = ""
-                else:
-                    w += c
+        while tokens:
+            w = tokens.popleft()
+            wid = self.word2id.get(w, -1)
+            if wid != -1:
+                len_wids += 1
+                if self.discard_table[wid] >= random.random():
+                    subsampled_wids.append(wid)
+            if len(subsampled_wids) >= self.max_sentence_length or (
+                c == "\n" and len(subsampled_wids) > 1
+            ):
+                self.sentence_cnt += 1
+                sentences.append((subsampled_wids, len_wids))
+                len_wids = 0
+                subsampled_wids = []
         logging.info("Done")
         if not os.path.exists(self.sentences_path) or self.overwrite:
             if not os.path.exists(os.path.dirname(self.sentences_path)):
@@ -161,10 +165,6 @@ class Vocab:
                 "'" + self.sentences_path + "' already exists"
             )
         del sentences, subsampled_wids
-
-        logging.info("Word (after min) count: " + str(self.word_cnt))
-        logging.info("Sentences count: " + str(self.sentence_cnt))
-        logging.info("Unique word count: " + str(self.unique_word_cnt))
 
         # Sorted indices by frequency, descending order
         self.sorted = np.argsort(list(self.word_freqs.values()))[::-1]
@@ -184,7 +184,8 @@ class Vocab:
 
     def get_negative_samples(self, ns_size=5):
         neg = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
-        self.neg_idx = (self.neg_idx + ns_size) % self.unigram_table_len
+        self.neg_idx += ns_size
         if len(neg) != ns_size:
+            self.neg_idx -= self.unigram_len
             return neg + self.unigram_table[0 : self.neg_idx]
         return neg

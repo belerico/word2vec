@@ -40,27 +40,41 @@ class Word2vecDataset(Dataset):
 
         examples = []
         if self.sg:
-            examples = [
-                (target, context, self.data.get_negative_samples(self.ns_size),)
-                for i, target in enumerate(subsampled_wids)
-                for context in subsampled_wids[max(0, i - b) : i]
-                + subsampled_wids[i + 1 : i + b + 1]
-            ]
+            # examples = [
+            #     (target, context, self.data.get_negative_samples(self.ns_size),)
+            #     for i, target in enumerate(subsampled_wids)
+            #     for context in subsampled_wids[max(0, i - b) : i]
+            #     + subsampled_wids[i + 1 : i + b + 1]
+            # ]
+            for i, target in enumerate(subsampled_wids):
+                contexts = (
+                    subsampled_wids[max(0, i - b) : i]
+                    + subsampled_wids[i + 1 : i + b + 1]
+                )
+                negs = self.data.get_negative_samples(
+                    len(contexts) * self.ns_size
+                )
+                for j, context in enumerate(contexts):
+                    examples.append(
+                        (
+                            target,
+                            context,
+                            negs[j * self.ns_size : (j + 1) * self.ns_size],
+                        )
+                    )
         else:
-            examples = []
             for i, target in enumerate(subsampled_wids):
                 context = (
                     subsampled_wids[max(0, i - b) : i]
                     + subsampled_wids[i + 1 : i + b + 1]
                 )
-                if context:
-                    examples.append(
-                        (
-                            target,
-                            context + [0 for _ in range(2 * b - len(context))],
-                            self.data.get_negative_samples(self.ns_size),
-                        )
+                examples.append(
+                    (
+                        target,
+                        context + [0 for _ in range(2 * b - len(context))],
+                        self.data.get_negative_samples(self.ns_size),
                     )
+                )
         return examples, len_wids
 
     def collate(self, batches):
