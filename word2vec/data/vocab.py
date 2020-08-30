@@ -180,14 +180,29 @@ class Vocab:
             ** self.unigram_pow
         )
         denom = np.sum(pow_freqs)
-        count = np.round((pow_freqs / denom) * self.unigram_table_size)
-        for wid, c in enumerate(count):
-            self.unigram_table += [wid + 1] * int(c)
+        # count = np.round((pow_freqs / denom) * self.unigram_table_size)
+        # for wid, c in enumerate(count):
+        #     self.unigram_table += [wid + 1] * int(c)
+        # logging.info("Unigram table size: " + str(len(self.unigram_table)))
+        # logging.info("Shuffling unigram table")
+        # idx = np.arange(len(self.unigram_table))
+        # self.rng.shuffle(idx)
+        # self.unigram_table = np.array(self.unigram_table)[idx]
+
+        frac = pow_freqs / denom
+        cum_frac = np.cumsum(frac)
+        self.unigram_table = np.zeros(int(self.unigram_table_size))
+        i = 0
+        wid = 1  # Word ID by the descending order frequencies
+        start = 0
+        for p in cum_frac:
+            while i / self.unigram_table_size <= p:
+                i += 1
+            self.unigram_table[start:i] = wid
+            wid += 1
+            start = i
         logging.info("Unigram table size: " + str(len(self.unigram_table)))
-        logging.info("Shuffling unigram table")
-        idx = np.arange(len(self.unigram_table))
-        self.rng.shuffle(idx)
-        self.unigram_table = (np.array(self.unigram_table)[idx]).tolist()
+
         # frac = pow_freqs / denom
         # self.unigram_table = deque()
         # wid = 1  # Word ID by the descending order frequencies
@@ -216,16 +231,16 @@ class Vocab:
         #         wid = len(pow_freqs)
 
     def get_negative_samples(self, target, ns_size=5):
-        negs = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
-        self.neg_idx += ns_size
-        if len(negs) != ns_size:
-            self.neg_idx -= self.unigram_table_len
-            negs += self.unigram_table[0 : self.neg_idx]
-        negs = [neg if neg != target else 0 for neg in negs]
+        # negs = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
+        # self.neg_idx += ns_size
+        # if len(negs) != ns_size:
+        #     self.neg_idx -= self.unigram_table_len
+        #     negs = np.concatenate((negs, self.unigram_table[0 : self.neg_idx]))
+        # negs = [neg if neg != target else 0 for neg in negs]
+        # return negs
+        negs = self.unigram_table[
+            self.rng.integers(low=0, high=self.unigram_table_len, size=ns_size)
+        ]
+        negs[negs == target] = 0
         return negs
-        # return [
-        #     self.unigram_table[i] if target != self.unigram_table[i] else 0
-        #     for i in np.random.randint(
-        #         low=0, high=self.unigram_table_len, size=ns_size
-        #     )
-        # ]
+

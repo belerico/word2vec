@@ -1,6 +1,6 @@
 # import mmap
 import pickle
-import random
+from collections import deque
 
 import torch
 
@@ -36,7 +36,9 @@ class Word2vecDataset(Dataset):
         # Shrink window by b
         b = self.window_size
         if self.shrink_window_size:
-            b = random.randint(1, self.window_size)
+            b = self.data.rng.integers(
+                low=1, high=self.window_size, endpoint=True
+            )
 
         examples = []
         if self.sg:
