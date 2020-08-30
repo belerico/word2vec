@@ -70,6 +70,7 @@ class SkipGram(Word2Vec):
         init_range = 0.5 / self.emb_dimension
         init.uniform_(self.u_embs.weight.data, -init_range, init_range)
         init.constant_(self.v_embs.weight.data, 0)
+        self.u_embs.weight.data[0, :] = 0
 
     def forward(self, pos_u, pos_v, neg_v):
         u_embs = self.u_embs(pos_u)
@@ -138,7 +139,7 @@ class CBOW(Word2Vec):
         # )
         score = F.logsigmoid(score)
 
-        neg_score = torch.bmm(self.v_embs(neg_v), u_embs.unsqueeze(2))
+        neg_score = torch.bmm(self.u_embs(neg_v), mean_v_embs.unsqueeze(2))
         # neg_score = torch.einsum(
         #     "ijk,ikl->ijl", [self.v_embs(neg_v), u_embs.unsqueeze(2)]
         # )  # Batch matrix multiplication

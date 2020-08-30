@@ -1,7 +1,6 @@
 import logging
 import os
 import pickle
-import random
 import re
 from collections import Counter, deque
 
@@ -22,6 +21,7 @@ class Vocab:
         max_sentence_length=1000,
         overwrite=True,
         chunk_size=32768,
+        seed=42,
     ):
         if not train_file:
             raise FileNotFoundError("Train file path not specified")
@@ -35,6 +35,7 @@ class Vocab:
         self.max_sentence_length = max_sentence_length
         self.overwrite = overwrite
         self.chunk_size = chunk_size
+        self.rng = np.random.default_rng(seed)
 
         self.word_freqs = dict()
         self.word2id = dict()
@@ -45,7 +46,6 @@ class Vocab:
         self.train_words = 0
         self.neg_idx = 0
         self.unigram_table = []
-        self.sorted = []
         self.init_vocab()
         self.init_unigram_table()
         self.unigram_table_len = len(self.unigram_table)
@@ -70,7 +70,6 @@ class Vocab:
                 open(os.path.join(vocab_path), "wb"),
                 protocol=pickle.HIGHEST_PROTOCOL,
             )
-            logging.info("Done")
         else:
             raise FileExistsError("'" + vocab_path + "' already exists")
 
@@ -79,7 +78,6 @@ class Vocab:
         if os.path.exists(vocab_path):
             logging.info("Loading vocab from " + vocab_path)
             obj = pickle.load(open(vocab_path, "rb"))
-            logging.info("Done")
             return obj
         else:
             raise FileNotFoundError("'" + vocab_path + "' not found")
@@ -104,14 +102,13 @@ class Vocab:
                     split = delim.findall(chunk)
                     tokens.extend(split)
                     word_freqs.update(split)
-        logging.info("Done")
 
         logging.info("Updating info")
         # Keep only those words with a frequency >= min_count
         wid = 1
         for w, c in word_freqs.items():
             self.train_words += c
-            if w != "\n" and c >= self.min_count:
+            if not w.isspace() and c >= self.min_count:
                 self.word2id[w] = wid
                 self.id2word[wid] = w
                 self.word_freqs[w] = c
@@ -119,19 +116,26 @@ class Vocab:
                 wid += 1
         del word_freqs
         self.unique_word_cnt = wid - 1
-        logging.info("Done")
+
+        logging.info("Sorting vocab")
+        self.word_freqs = {
+            w: c
+            for w, c in sorted(
+                self.word_freqs.items(), key=lambda x: x[1], reverse=True
+            )
+        }
 
         # Create the discard probability table
-        self.discard_table = np.zeros(len(self.word_freqs) + 1, dtype=np.float)
+        self.discard_table = np.zeros(len(self.word_freqs), dtype=np.float)
         logging.info("Building discard table for subsampling")
-        for w, c in self.word_freqs.items():
-            # (sqrt(vocab[word].cn / (sample * train_words)) + 1) * (sample * train_words) / vocab[word].cn;
-            self.discard_table[self.word2id[w]] = (
+        for i, c in enumerate(self.word_freqs.values()):
+            # (sqrt(vocab[word].cn / (sample * train_words)) + 1) *
+            # (sample * train_words) / vocab[word].cn;
+            self.discard_table[i] = (
                 (np.sqrt(c / (self.sample_thr * self.word_cnt)) + 1)
                 * (self.sample_thr * self.word_cnt)
                 / c
             )
-        logging.info("Done")
 
         logging.info("Pre-building sentences of subsampled words")
         len_wids = 0
@@ -142,7 +146,7 @@ class Vocab:
             wid = self.word2id.get(w, -1)
             if wid != -1:
                 len_wids += 1
-                if self.discard_table[wid] < np.random.rand():
+                if self.discard_table[wid - 1] < self.rng.random():
                     continue
                 subsampled_wids.append(wid)
             if len(subsampled_wids) >= self.max_sentence_length or (
@@ -153,7 +157,7 @@ class Vocab:
                 len_wids = 0
                 subsampled_wids = []
         del tokens
-        logging.info("Done")
+
         if not os.path.exists(self.sentences_path) or self.overwrite:
             if not os.path.exists(os.path.dirname(self.sentences_path)):
                 os.makedirs(os.path.dirname(self.sentences_path))
@@ -163,24 +167,27 @@ class Vocab:
                 open(self.sentences_path, "wb"),
                 protocol=pickle.HIGHEST_PROTOCOL,
             )
-            logging.info("Done")
         else:
             raise FileExistsError(
                 "'" + self.sentences_path + "' already exists"
             )
         del sentences, subsampled_wids
 
-        # Sorted indices by frequency, descending order
-        self.sorted = np.argsort(list(self.word_freqs.values()))[::-1]
-
     def init_unigram_table(self):
         logging.info("Building unigram table for negative sampling")
-        pow_freqs = self.get_sorted_freqs() ** self.unigram_pow
+        pow_freqs = (
+            np.array(list(self.word_freqs.values()), dtype=np.float)
+            ** self.unigram_pow
+        )
         denom = np.sum(pow_freqs)
         count = np.round((pow_freqs / denom) * self.unigram_table_size)
-        for sorted_wid, c in enumerate(count):
-            self.unigram_table += [self.sorted[sorted_wid] + 1] * int(c)
-        # np.random.shuffle(self.unigram_table)
+        for wid, c in enumerate(count):
+            self.unigram_table += [wid + 1] * int(c)
+        logging.info("Unigram table size: " + str(len(self.unigram_table)))
+        logging.info("Shuffling unigram table")
+        idx = np.arange(len(self.unigram_table))
+        self.rng.shuffle(idx)
+        self.unigram_table = np.array(self.unigram_table)[idx]
         # frac = pow_freqs / denom
         # self.unigram_table = deque()
         # wid = 1  # Word ID by the descending order frequencies
@@ -194,9 +201,10 @@ class Vocab:
         #         # Move to the next word.
         #         wid += 1
 
-        #         # Calculate the probability for the new word, and accumulate it
-        #         # with the probabilities of all previous words, so that we can
-        #         # compare d1 to the percentage of the table that we have filled.
+        #         # Calculate the probability for the new word,
+        #         # and accumulate it with the probabilities of
+        #         # all previous words, so that we can compare d1
+        #         # to the percentage of the table that we have filled.
         #         d1 += frac[wid - 1]
 
         #     # Don't go past the end of the vocab.
@@ -206,22 +214,18 @@ class Vocab:
         #     # Or maybe this is just precautionary.
         #     if wid >= len(pow_freqs) + 1:
         #         wid = len(pow_freqs)
-        logging.info("Done")
-
-    def get_sorted_freqs(self):
-        return np.array(list(self.word_freqs.values()))[self.sorted]
 
     def get_negative_samples(self, target, ns_size=5):
-        # negs = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
-        # self.neg_idx += ns_size
-        # if len(negs) != ns_size:
-        #     self.neg_idx -= self.unigram_table_len
-        #     negs += self.unigram_table[0 : self.neg_idx]
-        # negs = [neg if neg != target else 0 for neg in negs]
-        # return negs
-        return [
-            self.unigram_table[i] if target != self.unigram_table[i] else 0
-            for i in np.random.randint(
-                low=0, high=self.unigram_table_len, size=ns_size
-            )
-        ]
+        negs = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
+        self.neg_idx += ns_size
+        if len(negs) != ns_size:
+            self.neg_idx -= self.unigram_table_len
+            negs += self.unigram_table[0 : self.neg_idx]
+        negs = [neg if neg != target else 0 for neg in negs]
+        return negs
+        # return [
+        #     self.unigram_table[i] if target != self.unigram_table[i] else 0
+        #     for i in np.random.randint(
+        #         low=0, high=self.unigram_table_len, size=ns_size
+        #     )
+        # ]
