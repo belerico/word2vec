@@ -187,7 +187,7 @@ class Vocab:
         logging.info("Shuffling unigram table")
         idx = np.arange(len(self.unigram_table))
         self.rng.shuffle(idx)
-        self.unigram_table = np.array(self.unigram_table)[idx]
+        self.unigram_table = (np.array(self.unigram_table)[idx]).tolist()
         # frac = pow_freqs / denom
         # self.unigram_table = deque()
         # wid = 1  # Word ID by the descending order frequencies
