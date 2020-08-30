@@ -156,4 +156,4 @@ class CBOW(Word2Vec):
         return -1 * (score.sum() + neg_score.sum())
 
     def get_word_vectors(self):
-        return self.u_embs.weight.cpu().data.numpy()
+        return self.v_embs.weight.cpu().data.numpy()
