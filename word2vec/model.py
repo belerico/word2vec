@@ -76,8 +76,7 @@ class SkipGram(Word2Vec):
         n = self.syn1(negatives)
 
         # pos_scores = (u_embs * self.v_embs(pos_v)).sum(dim=1)
-        pos_scores = torch.mul(c, t)
-        pos_scores.register_hook(lambda x: x.clamp(min=-10, max=10))
+        pos_scores = torch.mul(c, t).clamp(min=-10, max=10)
         pos_scores = torch.sum(pos_scores, dim=1)
         # pos_scores = torch.einsum("ij,ij->i", [u_embs, self.v_embs(pos_v)])  # Batch dot product
         # pos_scores = contract(
@@ -85,8 +84,10 @@ class SkipGram(Word2Vec):
         # )
         pos_scores = F.logsigmoid(pos_scores)
 
-        neg_scores = torch.bmm(n, c.unsqueeze(2)).squeeze()
-        neg_scores.register_hook(lambda x: x.clamp(min=-10, max=10))
+        neg_scores = (
+            torch.bmm(n, c.unsqueeze(2)).squeeze().clamp(min=-10, max=10)
+        )
+        # neg_scores.register_hook(lambda x: x.clamp(min=-10, max=10))
         # neg_scores = torch.einsum(
         #     "ijk,ikl->ijl", [self.v_embs(neg_v), u_embs.unsqueeze(2)]
         # )  # Batch matrix multiplication
