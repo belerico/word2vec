@@ -1,12 +1,16 @@
 # import mmap
 import pickle
 
+import fastrand
 import torch
 
 # from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
 from .vocab import Vocab
+
+
+fastrand.pcg32_seed(42)
 
 
 class Word2vecDataset(Dataset):
@@ -35,16 +39,20 @@ class Word2vecDataset(Dataset):
         # Shrink window by b
         b = 0
         if self.shrink_window_size:
-            b = (
-                -1
-                * self.data.rng.integers(
-                    low=0,
-                    high=self.window_size - 1,
-                    size=len(subsampled_wids),
-                    endpoint=True,
-                )
-                + self.window_size
-            )
+            # b = (
+            #     -1
+            #     * self.data.rng.integers(
+            #         low=0,
+            #         high=self.window_size - 1,
+            #         size=len(subsampled_wids),
+            #         endpoint=True,
+            #     )
+            #     + self.window_size
+            # )
+            b = [
+                self.window_size - fastrand.pcg32bounded(self.window_size)
+                for _ in range(len(subsampled_wids))
+            ]
 
         examples = []
         if self.sg:
