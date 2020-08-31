@@ -1,6 +1,5 @@
 # import mmap
 import pickle
-from collections import deque
 
 import torch
 
@@ -34,10 +33,17 @@ class Word2vecDataset(Dataset):
     def __getitem__(self, idx):
         subsampled_wids, len_wids = self.sentences[idx]
         # Shrink window by b
-        b = self.window_size
+        b = 0
         if self.shrink_window_size:
-            b = self.data.rng.integers(
-                low=1, high=self.window_size, endpoint=True
+            b = (
+                -1
+                * self.data.rng.integers(
+                    low=0,
+                    high=self.window_size - 1,
+                    size=len(subsampled_wids),
+                    endpoint=True,
+                )
+                + self.window_size
             )
 
         examples = []
@@ -49,35 +55,23 @@ class Word2vecDataset(Dataset):
                     self.data.get_negative_samples(target, self.ns_size),
                 )
                 for i, target in enumerate(subsampled_wids)
-                for context in subsampled_wids[max(0, i - b) : i]
-                + subsampled_wids[i + 1 : i + b + 1]
+                for context in subsampled_wids[max(0, i - b[i]) : i]
+                + subsampled_wids[i + 1 : i + b[i] + 1]
             ]
-            # for i, target in enumerate(subsampled_wids):
-            #     contexts = (
-            #         subsampled_wids[max(0, i - b) : i]
-            #         + subsampled_wids[i + 1 : i + b + 1]
-            #     )
-            #     negs = self.data.get_negative_samples(
-            #         len(contexts) * self.ns_size
-            #     )
-            #     for j, context in enumerate(contexts):
-            #         examples.append(
-            #             (
-            #                 target,
-            #                 context,
-            #                 negs[j * self.ns_size : (j + 1) * self.ns_size],
-            #             )
-            #         )
         else:
             for i, target in enumerate(subsampled_wids):
                 context = (
-                    subsampled_wids[max(0, i - b) : i]
-                    + subsampled_wids[i + 1 : i + b + 1]
+                    subsampled_wids[max(0, i - b[i]) : i]
+                    + subsampled_wids[i + 1 : i + b[i] + 1]
                 )
                 examples.append(
                     (
                         target,
-                        context + [0 for _ in range(2 * b - len(context))],
+                        context
+                        + [
+                            0
+                            for _ in range(2 * self.window_size - len(context))
+                        ],
                         self.data.get_negative_samples(target, self.ns_size),
                     )
                 )
@@ -90,17 +84,3 @@ class Word2vecDataset(Dataset):
             torch.LongTensor([neg for b in batches for _, _, neg in b[0]]),
             sum([b[1] for b in batches]),
         )
-
-    # @staticmethod
-    # def collate_cw(batches):
-    #     # all_lengths = sum([b[1] for b in batches])
-    #     all_target = [t for b in batches for t, _, _ in b]
-    #     all_context = [c for b in batches for _, c, _ in b]
-    #     all_neg = [neg for b in batches for _, _, neg in b]
-
-    #     return (
-    #         torch.LongTensor(all_target),
-    #         torch.LongTensor(all_context),
-    #         torch.LongTensor(all_neg),
-    #         # all_lengths,
-    #     )

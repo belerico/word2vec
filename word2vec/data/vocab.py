@@ -180,67 +180,26 @@ class Vocab:
             ** self.unigram_pow
         )
         denom = np.sum(pow_freqs)
-        # count = np.round((pow_freqs / denom) * self.unigram_table_size)
-        # for wid, c in enumerate(count):
-        #     self.unigram_table += [wid + 1] * int(c)
-        # logging.info("Unigram table size: " + str(len(self.unigram_table)))
-        # logging.info("Shuffling unigram table")
-        # idx = np.arange(len(self.unigram_table))
-        # self.rng.shuffle(idx)
-        # self.unigram_table = np.array(self.unigram_table)[idx]
-
-        frac = pow_freqs / denom
-        cum_frac = np.cumsum(frac)
-        self.unigram_table = np.zeros(int(self.unigram_table_size))
-        i = 0
-        wid = 1  # Word ID by the descending order frequencies
-        start = 0
-        for p in cum_frac:
-            while i / self.unigram_table_size <= p:
-                i += 1
-            self.unigram_table[start:i] = wid
-            wid += 1
-            start = i
+        count = np.round((pow_freqs / denom) * self.unigram_table_size)
+        for wid, c in enumerate(count):
+            self.unigram_table += [wid + 1] * int(c)
         logging.info("Unigram table size: " + str(len(self.unigram_table)))
-
-        # frac = pow_freqs / denom
-        # self.unigram_table = deque()
-        # wid = 1  # Word ID by the descending order frequencies
-        # d1 = frac[wid - 1]
-        # for i in range(int(self.unigram_table_size)):
-        #     self.unigram_table.append(self.sorted[wid - 1] + 1)
-
-        #     # If the fraction of the table we have filled is greater than the
-        #     # probability of choosing this word, then move to the next word.
-        #     if i / self.unigram_table_size > d1:
-        #         # Move to the next word.
-        #         wid += 1
-
-        #         # Calculate the probability for the new word,
-        #         # and accumulate it with the probabilities of
-        #         # all previous words, so that we can compare d1
-        #         # to the percentage of the table that we have filled.
-        #         d1 += frac[wid - 1]
-
-        #     # Don't go past the end of the vocab.
-        #     # The total weights for all words should sum up to 1,
-        #     # so there shouldn't be any extra space at the end of
-        #     # the table. Maybe it's possible to be off by 1, though?
-        #     # Or maybe this is just precautionary.
-        #     if wid >= len(pow_freqs) + 1:
-        #         wid = len(pow_freqs)
+        logging.info("Shuffling unigram table")
+        self.unigram_table = np.array(self.unigram_table)[
+            self.rng.permutation(len(self.unigram_table))
+        ]
 
     def get_negative_samples(self, target, ns_size=5):
-        # negs = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
-        # self.neg_idx += ns_size
-        # if len(negs) != ns_size:
-        #     self.neg_idx -= self.unigram_table_len
-        #     negs = np.concatenate((negs, self.unigram_table[0 : self.neg_idx]))
-        # negs = [neg if neg != target else 0 for neg in negs]
-        # return negs
-        negs = self.unigram_table[
-            self.rng.integers(low=0, high=self.unigram_table_len, size=ns_size)
-        ]
+        negs = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
+        self.neg_idx += ns_size
+        if len(negs) != ns_size:
+            self.neg_idx -= self.unigram_table_len
+            negs = np.concatenate((negs, self.unigram_table[0 : self.neg_idx]))
         negs[negs == target] = 0
         return negs
+        # negs = self.unigram_table[
+        #     self.rng.integers(low=0, high=self.unigram_table_len, size=ns_size)
+        # ]
+        # negs[negs == target] = 0
+        # return negs
 
