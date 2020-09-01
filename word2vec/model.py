@@ -71,24 +71,37 @@ class SkipGram(Word2Vec):
         super(SkipGram, self).__init__(emb_size, emb_dimension)
 
     def forward(self, target, context, negatives):
-        t = self.syn1(target)
+        """t = self.syn1(target)
         c = self.syn0(context)
         n = self.syn1(negatives)
 
-        pos_scores = torch.mul(c, t).clamp(min=-10, max=10)
+        pos_scores = torch.mul(c, t)
         pos_scores = torch.sum(pos_scores, dim=1)
         # pos_scores = torch.einsum("ij,ij->i", [u_embs, self.v_embs(pos_v)])  # Batch dot product
         pos_scores = -F.logsigmoid(pos_scores)
 
         neg_scores = (
-            torch.bmm(n, c.unsqueeze(2)).squeeze().clamp(min=-10, max=10)
+            torch.bmm(n, c.unsqueeze(2)).squeeze()
         )
         # neg_scores = torch.einsum(
         #     "ijk,ikl->ijl", [self.v_embs(neg_v), u_embs.unsqueeze(2)]
         # )  # Batch matrix multiplication
         neg_scores = -F.logsigmoid(-neg_scores).sum(dim=1)
 
-        return (pos_scores + neg_scores).sum()
+        return (pos_scores + neg_scores).sum()"""
+
+        t = self.syn0(target)
+        c = self.syn1(context)
+
+        score = torch.mul(t, c).squeeze()
+        score = torch.sum(score, dim=1)
+        score = F.logsigmoid(score)
+
+        n = self.syn1(negatives)
+        neg_score = torch.bmm(n, t.unsqueeze(2)).squeeze()
+        neg_score = F.logsigmoid(-1 * neg_score)
+
+        return -1 * (torch.sum(score) + torch.sum(neg_score))
 
 
 class CBOW(Word2Vec):
@@ -99,29 +112,21 @@ class CBOW(Word2Vec):
     def forward(self, target, context, negatives):
         t = self.syn1(target)
         c = self.syn0(context)
-        n = self.syn1(negatives)
 
         # Mean of context vector without considering padding idx (0)
         if self.cbow_mean:
-            mean_c = torch.true_divide(
-                c.sum(dim=1), (context != 0).sum(dim=1, keepdim=True),
+            mean_c = torch.sum(c, dim=1) / torch.sum(
+                context != 0, dim=1, keepdim=True
             )
         else:
             mean_c = c.sum(dim=1)
 
-        pos_scores = torch.mul(t, mean_c).clamp(min=-10, max=10)
-        pos_scores = torch.sum(pos_scores, dim=1)
-        # pos_scores = torch.einsum(
-        #     "ij,ij->i", [u_embs, mean_v_embs]
-        # )  # Batch dot product
-        pos_scores = -F.logsigmoid(pos_scores)
+        score = torch.mul(t, mean_c).squeeze()
+        score = torch.sum(score, dim=1)
+        score = F.logsigmoid(score)
 
-        neg_scores = (
-            torch.bmm(n, mean_c.unsqueeze(2)).squeeze().clamp(min=-10, max=10)
-        )
-        # neg_scores = torch.einsum(
-        #     "ijk,ikl->ijl", [self.v_embs(neg_v), u_embs.unsqueeze(2)]
-        # )  # Batch matrix multiplication
-        neg_scores = -F.logsigmoid(-neg_scores).sum(dim=1)
+        n = self.syn1(negatives)
+        neg_score = torch.bmm(n, mean_c.unsqueeze(2)).squeeze()
+        neg_score = F.logsigmoid(-1 * neg_score)
 
-        return (pos_scores + neg_scores).sum()
+        return -1 * (torch.sum(score) + torch.sum(neg_score))
