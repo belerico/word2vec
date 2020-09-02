@@ -2,6 +2,8 @@ vec/
 vocab/
 sentences/
 word2vec/data/dataset/
+*.c
+*.so
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

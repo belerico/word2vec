@@ -87,8 +87,8 @@ class Word2vecDataset(Dataset):
 
     def collate(self, batches):
         return (
-            torch.LongTensor([t for b in batches for t, _, _ in b[0]]),
-            torch.LongTensor([c for b in batches for _, c, _ in b[0]]),
-            torch.LongTensor([neg for b in batches for _, _, neg in b[0]]),
+            [t for b in batches for t, _, _ in b[0]],
+            [c for b in batches for _, c, _ in b[0]],
+            [neg for b in batches for _, _, neg in b[0]],
             sum([b[1] for b in batches]),
         )

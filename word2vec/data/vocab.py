@@ -185,9 +185,9 @@ class Vocab:
             self.unigram_table += [wid + 1] * int(c)
         logging.info("Unigram table size: " + str(len(self.unigram_table)))
         logging.info("Shuffling unigram table")
-        self.unigram_table = np.array(self.unigram_table)[
-            self.rng.permutation(len(self.unigram_table))
-        ]
+        self.unigram_table = np.array(
+            self.unigram_table, order="C", dtype=np.int
+        )[self.rng.permutation(len(self.unigram_table))]
 
     def get_negative_samples(self, target, ns_size=5):
         negs = self.unigram_table[self.neg_idx : self.neg_idx + ns_size]
