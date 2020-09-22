@@ -114,7 +114,7 @@ class Word2Vec:
             return lambda actual_word_cnt, epoch=None: self.initial_lr * (
                 1.0 - actual_word_cnt / (self.data.word_cnt + 1)
             )
-        elif self.lr_type == "traingular_decay":
+        elif self.lr_type == "triangular_decay":
             return lambda actual_word_cnt, epoch=None: self.initial_lr * (
                 1.0 - actual_word_cnt / ((epoch + 1) * self.data.word_cnt + 1)
             )
