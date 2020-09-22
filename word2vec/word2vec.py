@@ -42,7 +42,7 @@ class Word2Vec:
         if str.lower(lr_type) not in [
             "triangular",
             "decay",
-            "traingular_decay",
+            "triangular_decay",
         ]:
             raise NotImplementedError(
                 "'lr_type' must be 'triangular', 'triangular_decay' or 'decay'"
